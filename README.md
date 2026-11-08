@@ -1,12 +1,11 @@
 # Kuku Localise · Studio Workspace
 
-**Kuku Localise** is an enterprise-grade localisation engine designed specifically for fast-paced vertical microdramas. It bridges the critical context gap in serialized content by carrying character identity, evolving power dynamics, address registers (*aap / tum / tu*), and cultural adaptations across episodes.
+**Kuku Localise** is a localisation engine designed specifically for fast-paced vertical microdramas. It bridges the critical context gap in serialized content by carrying character identity, evolving power dynamics, and cultural adaptations across episodes.
 
 ---
 
 ## Core Principle: Pipeline Architecture
 
-> **Guiding Axiom:** *Give the LLM only judgment work; keep measurable constraints in plain code.*
 
 The system executes a strict 6-step pipeline that separates creative adaptation from mathematical compliance:
 
@@ -34,25 +33,6 @@ The system executes a strict 6-step pipeline that separates creative adaptation 
 
 6. **Step 6: Cultural Adaptation Pass (LLM)**  
    A dedicated secondary pass scans dialogue for Western/US idioms and colloquialisms (e.g. *"raincheck"*, *"ballpark"*), attaching explicit cultural rationale and localised equivalents.
-
----
-
-## Honesty of Measurement & Real Evidence Metrics (ROI)
-
-### Why Structural Metrics Aren't Enough
-Previous versions evaluated translations using purely structural checks (`comparison.json`: beat counts, audio timestamp preservation, and code-applied cue unification). However, code-enforced normalization masked the raw model's hallucinations (resulting in a rigged "0 unresolved" applied score).
-
-### Honest Model Evaluation
-The engine now evaluates `model_display_name`—the model's honest, raw cue selection—comparing raw consistency between Series Mode and Independent Mode *before* code applies the canonical Bible label.
-
-### True Studio ROI: Reviewer Edit Rate
-The true measure of localisation quality and studio cost savings is the **Reviewer Edit Rate**:
-
-$$\text{Reviewer Edit Rate} = \frac{\text{Characters Changed by Human Reviewer}}{\text{Characters Delivered by AI Model}}$$
-
-When a studio reviewer edits lines in the Localisation Review tab:
-- **Series Edit Rate** vs **Baseline Edit Rate** is computed per beat and per episode using Levenshtein distance.
-- **Reviewer Effort Saved (%)**: Proves the exact percentage of keystrokes and editing time saved by series context over naive isolated translation.
 
 ---
 
