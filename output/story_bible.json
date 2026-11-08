@@ -1,0 +1,612 @@
+{
+  "series_title": "Lady Juliana's Vengeance",
+  "target_language": "Hindi",
+  "adaptation_policy": "Maintain a high-register aristocratic tone for the nobility using respectful pronouns (aap/hum) and familiar/derogatory pronouns (tum/tu) for antagonists and servants. Ensure correct gender agreement in Hindi verbs and adjectives based on the character's specified gender.",
+  "characters": [
+    {
+      "id": "juliana",
+      "display_name": "JULIANA",
+      "spoken_name": "Juliana",
+      "surface_forms": [
+        "JULIANA",
+        "LADY JULIANA"
+      ],
+      "gender": "female",
+      "address_register": "aap",
+      "role": "Protagonist, disgraced heiress, skilled herbalist",
+      "relationships": "Wife of Alexander; abused stepdaughter of Lady Ashcroft; abandoned by Gerald and Clarissa",
+      "speech_style": "Resolute, vulnerable, fierce, calm and cutting under pressure",
+      "address": "Lady Juliana, Your Ladyship",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "alexander",
+      "display_name": "ALEXANDER",
+      "spoken_name": "Alexander",
+      "surface_forms": [
+        "ALEXANDER",
+        "MYSTERIOUS BEARDED MAN",
+        "SCARRED BEARDED MAN",
+        "THE BEARDED STRANGER"
+      ],
+      "gender": "male",
+      "address_register": "aap",
+      "role": "True Duke of Ashburn, scarred warrior, Juliana's husband",
+      "relationships": "Husband of Juliana; son of the Dowager Duchess; bitter enemy of Rupert and Catherine",
+      "speech_style": "Grave, cold, ominous, gentle and reassuring toward Juliana",
+      "address": "Your Grace, Duke Alexander",
+      "ambiguous_merges": [
+        "MYSTERIOUS BEARDED MAN",
+        "SCARRED BEARDED MAN",
+        "THE BEARDED STRANGER"
+      ],
+      "low_confidence_merges": [
+        {
+          "character_id": "alexander",
+          "display_name": "ALEXANDER",
+          "surface_form": "MYSTERIOUS BEARDED MAN",
+          "reasons": [
+            "Generic descriptor cue 'MYSTERIOUS BEARDED MAN' merged into 'ALEXANDER' with no shared name tokens"
+          ],
+          "confidence": "low"
+        },
+        {
+          "character_id": "alexander",
+          "display_name": "ALEXANDER",
+          "surface_form": "SCARRED BEARDED MAN",
+          "reasons": [
+            "Generic descriptor cue 'SCARRED BEARDED MAN' merged into 'ALEXANDER' with no shared name tokens"
+          ],
+          "confidence": "low"
+        },
+        {
+          "character_id": "alexander",
+          "display_name": "ALEXANDER",
+          "surface_form": "THE BEARDED STRANGER",
+          "reasons": [
+            "Generic descriptor cue 'THE BEARDED STRANGER' merged into 'ALEXANDER' with no shared name tokens"
+          ],
+          "confidence": "low"
+        }
+      ],
+      "needs_review": true
+    },
+    {
+      "id": "catherine",
+      "display_name": "CATHERINE",
+      "spoken_name": "Catherine",
+      "surface_forms": [
+        "CATHERINE",
+        "LADY CATHERINE"
+      ],
+      "gender": "female",
+      "address_register": "tum",
+      "role": "Scheming noblewoman, conspirator with Rupert",
+      "relationships": "Co-conspirator and lover of Rupert; rival of Juliana; tormentor of the Dowager Duchess",
+      "speech_style": "Scheming, taunting, disdainful, smug",
+      "address": "Lady Catherine",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "gerald",
+      "display_name": "GERALD",
+      "spoken_name": "Gerald",
+      "surface_forms": [
+        "GERALD"
+      ],
+      "gender": "male",
+      "address_register": "tum",
+      "role": "Betrayer of Juliana, allied with Clarissa",
+      "relationships": "Former fiancé of Juliana; partner in cruelty with Clarissa and Rupert",
+      "speech_style": "Mocking, arrogant, scornful, cruel",
+      "address": "Lord Gerald",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "clarissa",
+      "display_name": "CLARISSA",
+      "spoken_name": "Clarissa",
+      "surface_forms": [
+        "CLARISSA",
+        "LADY CLARISSA"
+      ],
+      "gender": "female",
+      "address_register": "tum",
+      "role": "Juliana's cruel sister",
+      "relationships": "Sister of Juliana; allied with Gerald",
+      "speech_style": "Gleeful, condescending, mocking, derisive",
+      "address": "Lady Clarissa",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "rupert",
+      "display_name": "RUPERT",
+      "spoken_name": "Rupert",
+      "surface_forms": [
+        "RUPERT"
+      ],
+      "gender": "male",
+      "address_register": "tum",
+      "role": "Usurper of Ashburn, co-conspirator",
+      "relationships": "Usurper of the Ashburn estate; partner of Catherine; enemy of Alexander",
+      "speech_style": "Boastful, confident, smug, dark and conspiratorial",
+      "address": "Lord Rupert",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "alexanders-mother",
+      "display_name": "DOWAGER DUCHESS",
+      "spoken_name": "Dowager Duchess",
+      "surface_forms": [
+        "ALEXANDER'S MOTHER",
+        "DOWAGER DUCHESS"
+      ],
+      "gender": "female",
+      "address_register": "aap",
+      "role": "Mother of Alexander, poisoned victim",
+      "relationships": "Mother of Alexander; imprisoned and poisoned by Rupert and Catherine",
+      "speech_style": "Weak, raspy, trembling, discerning, stern",
+      "address": "Your Grace, Her Grace",
+      "ambiguous_merges": [
+        "ALEXANDER'S MOTHER"
+      ],
+      "low_confidence_merges": [
+        {
+          "character_id": "alexanders-mother",
+          "display_name": "DOWAGER DUCHESS",
+          "surface_form": "ALEXANDER'S MOTHER",
+          "reasons": [
+            "Surface form 'ALEXANDER'S MOTHER' has zero token overlap with canonical name 'DOWAGER DUCHESS'"
+          ],
+          "confidence": "low"
+        }
+      ],
+      "needs_review": true
+    },
+    {
+      "id": "prudence",
+      "display_name": "PRUDENCE",
+      "spoken_name": "Prudence",
+      "surface_forms": [
+        "PRUDENCE"
+      ],
+      "gender": "female",
+      "address_register": "tum",
+      "role": "Loyal maid and helper",
+      "relationships": "Friend and helper to Juliana; sister of Toby",
+      "speech_style": "Nervous, desperate, panicked, bitter",
+      "address": "Prudence",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "father-thomas",
+      "display_name": "FATHER THOMAS",
+      "spoken_name": "Father Thomas",
+      "surface_forms": [
+        "FATHER THOMAS"
+      ],
+      "gender": "male",
+      "address_register": "tum",
+      "role": "Corrupt clergyman",
+      "relationships": "Secret ally and lover of Catherine; conspirator against Alexander",
+      "speech_style": "Grave, low, measured, cynical, intimate",
+      "address": "Father Thomas",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "lord-sterling",
+      "display_name": "LORD STERLING",
+      "spoken_name": "Lord Sterling",
+      "surface_forms": [
+        "LORD STERLING"
+      ],
+      "gender": "male",
+      "address_register": "tum",
+      "role": "Corrupt aristocrat and conspirator",
+      "relationships": "Allied with Rupert and Catherine against Alexander",
+      "speech_style": "Outraged, authoritative, conspiratorial",
+      "address": "Lord Sterling",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "high-priest",
+      "display_name": "HIGH PRIEST",
+      "spoken_name": "High Priest",
+      "surface_forms": [
+        "HIGH PRIEST",
+        "PRIEST",
+        "THE PRIEST"
+      ],
+      "gender": "male",
+      "address_register": "aap",
+      "role": "Religious authority challenging Alexander's marriage",
+      "relationships": "Enforcer of ecclesiastical law on the estate",
+      "speech_style": "Commanding, severe, booming, stern",
+      "address": "Your Eminence",
+      "ambiguous_merges": [
+        "PRIEST",
+        "THE PRIEST"
+      ],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "judge",
+      "display_name": "JUDGE",
+      "spoken_name": "Judge",
+      "surface_forms": [
+        "JUDGE"
+      ],
+      "gender": "male",
+      "address_register": "aap",
+      "role": "Presiding judge at Juliana's trial",
+      "relationships": "Manipulated by the conspirators to try Juliana",
+      "speech_style": "Booming, authoritative, inquisitive, severe",
+      "address": "Your Honor",
+      "ambiguous_merges": [],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "constable",
+      "display_name": "CONSTABLE",
+      "spoken_name": "Constable",
+      "surface_forms": [
+        "CONSTABLE",
+        "POLICE CONSTABLE"
+      ],
+      "gender": "male",
+      "address_register": "tum",
+      "role": "Local law enforcement",
+      "relationships": "Initially used by Gerald/Rupert against Alexander, later enforces Crown orders",
+      "speech_style": "Authoritative, stern, cold, procedural",
+      "address": "Constable",
+      "ambiguous_merges": [
+        "POLICE CONSTABLE"
+      ],
+      "low_confidence_merges": [],
+      "needs_review": false
+    },
+    {
+      "id": "maid",
+      "display_name": "MAID",
+      "spoken_name": "Maid",
+      "surface_forms": [
+        "MAID",
+        "AGNES"
+      ],
+      "gender": "female",
+      "address_register": "tum",
+      "role": "Coerced young maid / Catherine's servant",
+      "relationships": "Sister whose life was saved by Juliana; later blackmailed/servant to Catherine",
+      "speech_style": "Sobbing, meek, hesitant, anxious",
+      "address": "Girl",
+      "ambiguous_merges": [
+        "AGNES"
+      ],
+      "low_confidence_merges": [
+        {
+          "character_id": "maid",
+          "display_name": "MAID",
+          "surface_form": "AGNES",
+          "reasons": [
+            "Surface form 'AGNES' has zero token overlap with canonical name 'MAID'"
+          ],
+          "confidence": "low"
+        }
+      ],
+      "needs_review": true
+    },
+    {
+      "id": "lord-ashcroft",
+      "display_name": "LORD ASHCROFT",
+      "spoken_name": "Lord Ashcroft",
+      "surface_forms": [
+        "LORD ASHCROFT",
+        "LADY ASHCROFT"
+      ],
+      "gender": "male",
+      "address_register": "aap",
+      "role": "Juliana's callous father/stepmother",
+      "relationships": "Father of Juliana and Clarissa; disowns Juliana",
+      "speech_style": "Harsh, final, stern, cold",
+      "address": "Lord Ashcroft",
+      "ambiguous_merges": [
+        "LADY ASHCROFT"
+      ],
+      "low_confidence_merges": [],
+      "needs_review": false
+    }
+  ],
+  "flagged_merges": [
+    {
+      "character_id": "alexander",
+      "display_name": "ALEXANDER",
+      "surface_form": "MYSTERIOUS BEARDED MAN",
+      "reasons": [
+        "Generic descriptor cue 'MYSTERIOUS BEARDED MAN' merged into 'ALEXANDER' with no shared name tokens"
+      ],
+      "confidence": "low"
+    },
+    {
+      "character_id": "alexander",
+      "display_name": "ALEXANDER",
+      "surface_form": "SCARRED BEARDED MAN",
+      "reasons": [
+        "Generic descriptor cue 'SCARRED BEARDED MAN' merged into 'ALEXANDER' with no shared name tokens"
+      ],
+      "confidence": "low"
+    },
+    {
+      "character_id": "alexander",
+      "display_name": "ALEXANDER",
+      "surface_form": "THE BEARDED STRANGER",
+      "reasons": [
+        "Generic descriptor cue 'THE BEARDED STRANGER' merged into 'ALEXANDER' with no shared name tokens"
+      ],
+      "confidence": "low"
+    },
+    {
+      "character_id": "alexanders-mother",
+      "display_name": "DOWAGER DUCHESS",
+      "surface_form": "ALEXANDER'S MOTHER",
+      "reasons": [
+        "Surface form 'ALEXANDER'S MOTHER' has zero token overlap with canonical name 'DOWAGER DUCHESS'"
+      ],
+      "confidence": "low"
+    },
+    {
+      "character_id": "maid",
+      "display_name": "MAID",
+      "surface_form": "AGNES",
+      "reasons": [
+        "Surface form 'AGNES' has zero token overlap with canonical name 'MAID'"
+      ],
+      "confidence": "low"
+    }
+  ],
+  "glossary": [
+    {
+      "source": "Ashburn",
+      "decision": "keep",
+      "target": "Ashburn",
+      "note": "Name of the ducal estate and family."
+    },
+    {
+      "source": "Ashcroft",
+      "decision": "keep",
+      "target": "Ashcroft",
+      "note": "Name of Juliana's original family estate."
+    },
+    {
+      "source": "Her Grace",
+      "decision": "adapt",
+      "target": "Maharani / Your Grace",
+      "note": "Honorific for the Duchess."
+    },
+    {
+      "source": "Your Grace",
+      "decision": "adapt",
+      "target": "Maharaj / Your Grace",
+      "note": "Honorific for the Duke."
+    }
+  ],
+  "plot_spine": [
+    {
+      "episode": 1,
+      "summary": "Lady Juliana arrives at the cathedral in her mother's bridal gown, only to be abandoned at the altar by Gerald for her sister Clarissa with her family's blessing."
+    },
+    {
+      "episode": 2,
+      "summary": "Publicly cast aside, Juliana stands tall and turns her humiliation into an unyielding indictment of Gerald's honor."
+    },
+    {
+      "episode": 3,
+      "summary": "Banished from the chapel and seized by guards, Juliana is rescued by an imposing scarred stranger who proposes to her."
+    },
+    {
+      "episode": 4,
+      "summary": "Defying Gerald and Clarissa, Juliana accepts the mysterious warrior's proposal and is officially wed, choosing exile and dignity."
+    },
+    {
+      "episode": 5,
+      "summary": "Formally disowned and stripped of her inheritance, Juliana is humiliated when her ledger is thrown in the mud, but her husband defends her."
+    },
+    {
+      "episode": 6,
+      "summary": "Seeking shelter from the rain, Juliana arrives at her husband's modest woodland cottage and finds peace."
+    },
+    {
+      "episode": 7,
+      "summary": "When Gerald and his companion arrive to mock Juliana, her stoic husband returns from the forest to send them fleeing."
+    },
+    {
+      "episode": 8,
+      "summary": "Juliana inspects her mother's herbal grimoire while Alexander bonds with her over rustic medicinal knowledge and war memories."
+    },
+    {
+      "episode": 9,
+      "summary": "When a frantic mother brings her ill child to the cottage, Juliana cures him with herbal remedies, sparking dangerous rumors."
+    },
+    {
+      "episode": 10,
+      "summary": "Alexander returns gravely wounded, leading to an intimate confrontation where their pasts collide."
+    },
+    {
+      "episode": 11,
+      "summary": "Gerald and Clarissa arrive with a constable accusing Alexander of theft, threatening to tear the newlyweds apart."
+    },
+    {
+      "episode": 12,
+      "summary": "Clarissa offers Juliana a sadistic ultimatum: retrieve a signet ring from blackthorn briars with bare hands or watch her husband hang."
+    },
+    {
+      "episode": 13,
+      "summary": "Juliana crawls barehanded into the blackthorn garden, enduring brutal lacerations to unearth the emerald signet ring."
+    },
+    {
+      "episode": 14,
+      "summary": "After securing Alexander's freedom, he carries her home to bandage her torn hands and vows protection."
+    },
+    {
+      "episode": 15,
+      "summary": "When thugs desecrate Juliana's medicinal garden, a protective Alexander charges into the night to defend her."
+    },
+    {
+      "episode": 16,
+      "summary": "Alexander overpowers the thugs and extracts a confession unmasking Gerald Harrington as the mastermind."
+    },
+    {
+      "episode": 17,
+      "summary": "Alexander repairs the garden and swears to protect Juliana, drawing them into a tender embrace by the hearth."
+    },
+    {
+      "episode": 18,
+      "summary": "When their cottage is set ablaze, Alexander rescues Juliana and her mother's ledger from the inferno, vowing vengeance."
+    },
+    {
+      "episode": 19,
+      "summary": "Receiving shelter from villagers, Alexander learns from a loyal spy that his enemies have imprisoned his mother and claimed his ducal seat."
+    },
+    {
+      "episode": 20,
+      "summary": "Rupert and Catherine plot to seize the ducal title as the Dowager Duchess withers, while Juliana prepares remedies in a barn."
+    },
+    {
+      "episode": 21,
+      "summary": "After curing a village boy, Juliana learns the Dowager Duchess is secretly withering away from a mysterious illness inside Ashbury Manor."
+    },
+    {
+      "episode": 22,
+      "summary": "Disguised as a scullery maid, Juliana infiltrates Ashbury Manor and discovers the dying Dowager Duchess suffering from poison."
+    },
+    {
+      "episode": 23,
+      "summary": "Juliana discovers the Duchess is being poisoned with arsenic, just as someone arrives at the bedroom door."
+    },
+    {
+      "episode": 24,
+      "summary": "An arrogant noblewoman catches Juliana in the chambers, strikes her with a riding crop, and orders her to scrub the hearth."
+    },
+    {
+      "episode": 25,
+      "summary": "In the forest, Alexander confronts an injured Juliana and reacts with fury upon learning of the arsenic poisoning."
+    },
+    {
+      "episode": 26,
+      "summary": "While administering an antidote at night, Juliana is stunned when the Duchess recognizes her family ring and demands the truth."
+    },
+    {
+      "episode": 27,
+      "summary": "Before Juliana can reveal Alexander's name, Rupert and Catherine storm the bedchamber and frame her for poisoning."
+    },
+    {
+      "episode": 28,
+      "summary": "Rupert and Catherine frame Juliana, uncover her noble identity and herbarium, and order her to the dungeons."
+    },
+    {
+      "episode": 29,
+      "summary": "Thrown into subterranean cells as Catherine threatens to burn her mother's herbarium, Juliana swears they will never take Alexander."
+    },
+    {
+      "episode": 30,
+      "summary": "Rupert and Catherine conspire with an elder nobleman to fabricate a witchcraft charge against Juliana."
+    },
+    {
+      "episode": 31,
+      "summary": "Catherine subjects the chained heiress to ruthless psychological torment with a red-hot iron."
+    },
+    {
+      "episode": 32,
+      "summary": "Chained in the dungeon, Juliana shatters Catherine's cruelty with unshakeable dignity, driving Catherine into a murderous fury."
+    },
+    {
+      "episode": 33,
+      "summary": "A young maid is manipulated through coercion and threats to give false testimony framing Juliana for witchcraft."
+    },
+    {
+      "episode": 34,
+      "summary": "Put on trial for witchcraft, Lady Juliana stands proud and defiant in the prisoner's dock."
+    },
+    {
+      "episode": 35,
+      "summary": "Alexander's elderly mother escapes through a blizzard to a cabin, reuniting with her presumed-dead son."
+    },
+    {
+      "episode": 36,
+      "summary": "Learning of Juliana's imprisonment and execution, Alexander vows to return from the dead and reclaim everything."
+    },
+    {
+      "episode": 37,
+      "summary": "As Rupert and Catherine issue wedding invitations paired with Juliana's execution decree, Juliana endures starvation."
+    },
+    {
+      "episode": 38,
+      "summary": "A compassionate guard secretly feeds Juliana bread as distant wedding bells signal the start of Rupert's nuptials."
+    },
+    {
+      "episode": 39,
+      "summary": "Alexander's men neutralize guards while Alexander dons his ducal regalia to march forth and rescue Juliana."
+    },
+    {
+      "episode": 40,
+      "summary": "High society gathers for Rupert and Catherine's wedding, unaware Alexander's retribution is at their gates."
+    },
+    {
+      "episode": 41,
+      "summary": "Juliana is paraded in chains before high society until an explosion shatters the cathedral entrance, heralding Alexander."
+    },
+    {
+      "episode": 42,
+      "summary": "Emerging from smoke in full ducal regalia, Alexander confronts Rupert and is proclaimed rightful Duke by his mother."
+    },
+    {
+      "episode": 43,
+      "summary": "Royal guards refuse Rupert's arrest orders and salute the true Duke as Crown intelligence documents expose treason."
+    },
+    {
+      "episode": 44,
+      "summary": "Lord Sterling and Rupert are apprehended by the Crown while Catherine's pleas are coldly rejected by Alexander."
+    },
+    {
+      "episode": 45,
+      "summary": "Alexander frees Juliana and proclaims her Duchess before an ecclesiastical authority bursts in to invalidate their marriage."
+    },
+    {
+      "episode": 46,
+      "summary": "The High Priest invalidates the wedding for lack of a royal license, prompting Alexander to demand a ten-day trial."
+    },
+    {
+      "episode": 47,
+      "summary": "A destitute Catherine begs for sanctuary at Ashbourne, and Juliana offers her survival under the humiliation of a scullery maid."
+    },
+    {
+      "episode": 48,
+      "summary": "Feigning submission, Catherine schemes in secret to use the ten-day reprieve to strike back with Father Thomas."
+    },
+    {
+      "episode": 49,
+      "summary": "Meeting Father Thomas at dawn, Catherine orchestrates a conspiracy to stall the council hearing and extract intelligence."
+    },
+    {
+      "episode": 50,
+      "summary": "Catherine negotiates Father Thomas's silence with territorial control, unaware Agnes has witnessed their scandalous intimacy."
+    }
+  ]
+}
