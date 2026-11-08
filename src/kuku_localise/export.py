@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from kuku_localise.models import Episode
 from kuku_localise.parse import is_translatable
 
@@ -65,3 +67,46 @@ def render_episode(episode: Episode, translation: dict | None = None, edits: dic
     lines.append("--- SCRIPT END ---")
     lines.append("")
     return "\n".join(lines)
+
+
+_CUE = re.compile(r"^\s*\*\*.+?:\*\*\s*$")
+_TIME = re.compile(r"^\s*Start:\s*\(")
+
+
+def render_dialogue_only(source_text: str, episode: Episode, translation: dict) -> str:
+    """Keep the uploaded screenplay byte-for-line structure, replacing dialogue bodies only."""
+    newline = "\r\n" if "\r\n" in source_text else "\n"
+    lines = source_text.splitlines()
+    source_beats = episode.beats()
+    translated = translation.get("beats") or {}
+    cursor = 0
+    output: list[str] = []
+    index = 0
+    while index < len(lines):
+        output.append(lines[index])
+        if not _CUE.match(lines[index]) or cursor >= len(source_beats):
+            index += 1
+            continue
+        beat = source_beats[cursor]
+        # The next parsed dialogue cue owns the next timing/body section. If the
+        # source diverges, leave it untouched rather than risking a wrong edit.
+        lookahead = index + 1
+        while lookahead < len(lines) and not _TIME.match(lines[lookahead]) and not _CUE.match(lines[lookahead]):
+            output.append(lines[lookahead])
+            lookahead += 1
+        if lookahead >= len(lines) or not _TIME.match(lines[lookahead]):
+            index += 1
+            continue
+        output.append(lines[lookahead])
+        replacement = (translated.get(beat.id) or {}).get("text") if beat.kind == "dialogue" else ""
+        body_start = lookahead + 1
+        body_end = body_start
+        while body_end < len(lines) and lines[body_end].strip() and not _CUE.match(lines[body_end]):
+            body_end += 1
+        if replacement:
+            output.extend(replacement.splitlines())
+        else:
+            output.extend(lines[body_start:body_end])
+        cursor += 1
+        index = body_end
+    return newline.join(output) + (newline if source_text.endswith(("\n", "\r")) else "")

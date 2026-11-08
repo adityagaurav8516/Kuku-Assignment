@@ -9,11 +9,12 @@ from kuku_localise.parse import is_translatable
 
 TRANSLATE_SYSTEM = """You localise microdrama screenplay beats into the requested language.
 Return one JSON object with this shape:
-{"headings": [{"scene": 1, "heading": "..."}], "beats": [{"id": "...", "text": "...", "parenthetical": "...", "display_name": "..."}]}
+{"headings": [{"scene": 1, "heading": "..."}], "beats": [{"id": "...", "text": "...", "parenthetical": "...", "display_name": "...", "speaker": "...", "listener_or_target": "...", "relationship_context": "...", "localisation_note": "..."}]}
 Include every beat id you were given, exactly once.
 text is the translation of that beat only. Do not merge beats, drop a line, or add events.
 parenthetical is a short acting note in the target language, or an empty string when the source note is empty.
 display_name is the cue label for a dialogue beat. Use an empty string for action, sound, and music.
+For each dialogue beat, give a concise relationship_context and explain the localisation choice in localisation_note. Identify a listener_or_target only when the line makes one clear; otherwise use an empty string. These are model-generated editorial notes, not verified facts. For non-dialogue beats, these context fields should be empty.
 Preserve who is speaking, the facts, and the emotional force. Do not soften an insult or explain a joke.
 Do not include timestamps in the text. Code copies the timestamps.
 """
@@ -51,6 +52,10 @@ def _normalise(data: dict) -> tuple[dict[int, str], dict[str, dict]]:
                 "text": str(item.get("text") or "").strip(),
                 "parenthetical": str(item.get("parenthetical") or "").strip(),
                 "display_name": str(item.get("display_name") or "").strip(),
+                "speaker": str(item.get("speaker") or "").strip(),
+                "listener_or_target": str(item.get("listener_or_target") or "").strip(),
+                "relationship_context": str(item.get("relationship_context") or "").strip(),
+                "localisation_note": str(item.get("localisation_note") or "").strip(),
             }
     return headings, beats
 
@@ -108,10 +113,10 @@ def translate_episode(
     if mode == "series":
         cues = [beat["cue"] for beat in beats if beat["kind"] == "dialogue"]
         user = (
-            "Mode: series. Use the story bible. "
+            "Mode: series. Use the story bible. For every dialogue line, apply character voice, relationships, address, continuity, and glossary. "
             "For each dialogue beat, set display_name to that character's display_name. "
             "Use spoken_name when a line names a person, and use each glossary target for its source term. "
-            "Follow the address guidance for the relationship between the speakers.\n\n"
+            "Follow address guidance. Add short relationship_context and localisation_note that describe the main contextual choice. Mark these as editorial rationale, not factual certainty.\n\n"
             + json.dumps(
                 {
                     **shared,

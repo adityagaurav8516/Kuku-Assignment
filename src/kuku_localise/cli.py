@@ -5,12 +5,13 @@ import json
 from pathlib import Path
 
 from kuku_localise.bible import build_bible
-from kuku_localise.export import render_episode
+from kuku_localise.export import render_dialogue_only, render_episode
 from kuku_localise.index import build_index, choose_episodes
 from kuku_localise.llm import GeminiClient
 from kuku_localise.parse import parse_folder
 from kuku_localise.qa import combine_scores, score_translation
 from kuku_localise.translate import translate_episode
+from kuku_localise.summary import build_series_summary
 
 
 def _write_json(path: Path, data: dict) -> None:
@@ -34,8 +35,10 @@ def run(args: argparse.Namespace) -> int:
     _write_json(raw / "episodes.json", {"episodes": [episode.to_dict() for episode in episodes]})
 
     client = GeminiClient(output / "cache", model=args.model)
-    bible = build_bible(client, index, scripts.name, args.lang)
-    _write_json(raw / "story_bible.json", bible)
+    bible_path = raw / "story_bible.json"
+    bible = json.loads(bible_path.read_text(encoding="utf-8")) if bible_path.exists() else build_bible(client, index, scripts.name, args.lang)
+    _write_json(bible_path, bible)
+    _write_json(raw / "series_summary.json", build_series_summary(client, index, bible))
 
     independent_scores, series_scores, report_episodes = [], [], []
     by_number = {episode.number: episode for episode in episodes}
@@ -50,6 +53,10 @@ def run(args: argparse.Namespace) -> int:
         _write_json(series_path, series)
         (raw / f"episode-{episode.number:03d}.independent.txt").write_text(render_episode(episode, independent), encoding="utf-8")
         (raw / f"episode-{episode.number:03d}.series.txt").write_text(render_episode(episode, series), encoding="utf-8")
+        source_text = (scripts / episode.source_file).read_text(encoding="utf-8")
+        (raw / f"episode-{episode.number:03d}.dialogue-only.{args.lang}.txt").write_text(
+            render_dialogue_only(source_text, episode, series), encoding="utf-8"
+        )
         independent_score = score_translation(episode, independent, bible)
         series_score = score_translation(episode, series, bible)
         independent_scores.append(independent_score)

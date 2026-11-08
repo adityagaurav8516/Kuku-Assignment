@@ -2,6 +2,7 @@ from pathlib import Path
 
 from kuku_localise.index import choose_episodes
 from kuku_localise.parse import parse_episode_text, parse_folder
+from kuku_localise.export import render_dialogue_only
 
 
 def test_parser_assigns_stable_beat_ids_and_keeps_timestamps():
@@ -21,3 +22,15 @@ def test_sample_show_parses_and_default_selection_is_stable():
     assert skipped == []
     assert [episode.number for episode in episodes] == [1, 2]
     assert choose_episodes([1, 2]) == [1, 2]
+
+
+def test_dialogue_only_export_preserves_directions_and_timestamps():
+    source = chr(10).join(["SCENE 1", "**ACTION:**", "Start: (00:00) | End: (00:02)", "She enters.", "", "**MIRA:**", "Start: (00:03) | End: (00:05)", "Hello.", ""])
+    episode = parse_episode_text(source, "episode-01.txt")
+    assert episode is not None
+    dialogue_id = episode.beats()[1].id
+    rendered = render_dialogue_only(source, episode, {"beats": {dialogue_id: {"text": "नमस्ते।"}}})
+    assert "She enters." in rendered
+    assert "Start: (00:03) | End: (00:05)" in rendered
+    assert "नमस्ते।" in rendered
+    assert "Hello." not in rendered

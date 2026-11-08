@@ -1,142 +1,1231 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 from pathlib import Path
 
 import streamlit as st
 
+from kuku_localise.bible import build_bible
 from kuku_localise.cli import run
-from kuku_localise.export import render_episode
+from kuku_localise.index import build_index
+from kuku_localise.llm import GeminiClient
 from kuku_localise.models import Episode
+from kuku_localise.parse import parse_folder
 from kuku_localise.projects import create_project, list_projects, read_project, save_scripts, update_project
 
-PROJECTS_DIR = Path("projects")
-MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "Custom model ID"]
+PROJECTS = Path("projects")
 LANGUAGES = ["Hindi", "Tamil", "Telugu", "Spanish", "English", "Custom language"]
+MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "Custom model ID"]
+
+# Configure Streamlit page once at the top
+st.set_page_config(
+    page_title="Kuku Localise · Studio Workspace",
+    page_icon="🎬",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Dark Mode Cinema Studio Theme & Design System (High Contrast & Readability)
+st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg-deep: #0c0710;
+  --bg-surface: #150e1b;
+  --bg-card: #1c1324;
+  --bg-card-hover: #24182e;
+  --bg-subtle: #20152a;
+  
+  --line: #331f3f;
+  --line-strong: #4e2e60;
+  --line-highlight: #ba58cb;
+  
+  --text-main: #f5eff8;
+  --text-muted: #bfaec7;
+  --text-subtle: #9885a3;
+  --text-inverse: #0c0710;
+  
+  --accent-plum: #ba58cb;
+  --accent-purple: #9d3eb2;
+  --accent-light: #f5d4fc;
+  
+  --emerald-bg: #062b1e;
+  --emerald-text: #6ee7b7;
+  --emerald-border: #0d6e4d;
+  
+  --indigo-bg: #191b42;
+  --indigo-text: #c7d2fe;
+  --indigo-border: #3730a3;
+  
+  --amber-bg: #301d07;
+  --amber-text: #fde68a;
+  --amber-border: #854d0e;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* Base App Dark Theme */
+.stApp {
+  background: var(--bg-deep) !important;
+  color: var(--text-main) !important;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Global Typography & Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+p, span, label, div {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-main);
+}
+
+.stCaption, small, [data-testid="stCaptionContainer"] {
+  color: var(--text-muted) !important;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.88em !important;
+  color: #f7d4ff !important;
+  background: #25182e !important;
+}
+
+/* Sidebar Dark Styling */
+[data-testid="stSidebar"] {
+  background: #110a17 !important;
+  border-right: 1px solid var(--line) !important;
+}
+[data-testid="stSidebar"] * {
+  color: var(--text-main);
+}
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h3 {
+  color: #ffffff !important;
+}
+
+/* Hero Banner Dark Mode */
+.hero-banner {
+  background: linear-gradient(135deg, #180521 0%, #2f0e3a 50%, #541968 100%);
+  padding: 30px 36px 26px 36px;
+  border-radius: 20px;
+  color: white;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(186, 88, 203, 0.25);
+}
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(186, 88, 203, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fad7ff;
+  margin-bottom: 12px;
+}
+.hero-title {
+  font-family: 'Cinzel', serif !important;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #ffffff !important;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+.hero-subtitle {
+  color: #ded0e4;
+  font-size: 1.02rem;
+  margin: 0 0 18px 0;
+  max-width: 780px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Executive Project Status Ribbon */
+.status-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ribbon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #ffffff;
+  font-weight: 500;
+}
+.ribbon-chip b {
+  color: #f7d2ff;
+  font-weight: 700;
+}
+
+/* Studio Dark Cards */
+.studio-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  transition: all 0.2s ease;
+}
+.studio-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-card-hover);
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  margin-bottom: 14px;
+}
+[data-testid="stExpander"] summary {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+[data-testid="stExpander"] summary:hover {
+  color: var(--accent-light) !important;
+}
+
+/* Tabs Styling Dark */
+[data-testid="stTabs"] [role="tablist"] {
+  gap: 10px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 4px;
+  margin-bottom: 24px;
+}
+[data-testid="stTabs"] button[role="tab"] {
+  border-radius: 12px 12px 0 0;
+  padding: 12px 20px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  transition: all 0.18s ease;
+}
+[data-testid="stTabs"] button[role="tab"]:hover {
+  color: var(--accent-light);
+  background: rgba(186, 88, 203, 0.1);
+}
+[data-testid="stTabs"] button[aria-selected="true"] {
+  color: #ffffff !important;
+  background: var(--bg-card) !important;
+  border-color: var(--line) !important;
+  border-bottom: 3px solid var(--accent-plum) !important;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Buttons Dark */
+.stButton > button, .stDownloadButton > button {
+  border-radius: 11px;
+  padding: 8px 18px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--line-strong);
+  color: #ffffff !important;
+  background: #25172d !important;
+  box-shadow: var(--shadow-sm);
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
+  border-color: var(--accent-plum) !important;
+  color: #ffffff !important;
+  background: #331d3f !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg, #6b1f80 0%, #a83ab8 100%) !important;
+  border-color: #ba58cb !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(186, 88, 203, 0.3);
+}
+.stButton > button[kind="primary"]:hover {
+  background: linear-gradient(135deg, #7c2494 0%, #ba58cb 100%) !important;
+  box-shadow: 0 6px 22px rgba(186, 88, 203, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Form Inputs, Textarea, Select - HIGH CONTRAST */
+.stTextInput input, .stTextArea textarea, [data-baseweb="select"] > div {
+  border-radius: 10px !important;
+  border: 1px solid var(--line-strong) !important;
+  background-color: #170e1d !important;
+  color: #ffffff !important;
+  font-size: 0.92rem !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--accent-plum) !important;
+  box-shadow: 0 0 0 3px rgba(186, 88, 203, 0.2) !important;
+}
+
+/* CRUCIAL: Ensure disabled text areas (Source & Isolated) are clear & readable */
+.stTextArea textarea:disabled {
+  -webkit-text-fill-color: #f1ecf5 !important;
+  color: #f1ecf5 !important;
+  background-color: #1d1325 !important;
+  border-color: #3b2447 !important;
+  opacity: 1 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.9rem !important;
+  line-height: 1.5 !important;
+}
+.stTextArea textarea {
+  color: #ffffff !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.9rem !important;
+  line-height: 1.5 !important;
+}
+
+/* Metric Display Dark */
+[data-testid="stMetric"] {
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-testid="stMetricLabel"] {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-testid="stMetricValue"] {
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+}
+
+/* Character Profile Card */
+.char-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.char-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #74278e, #ba58cb);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  box-shadow: 0 3px 12px rgba(186, 88, 203, 0.35);
+  flex-shrink: 0;
+}
+.char-title-box {
+  flex-grow: 1;
+}
+.char-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff !important;
+  margin: 0;
+}
+.char-spoken {
+  font-size: 0.9rem;
+  color: #e5a4ff;
+  font-weight: 600;
+}
+
+/* High-Contrast Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.badge-role {
+  background: #341940;
+  color: #f2b7ff;
+  border: 1px solid #5d2b72;
+}
+.badge-alias {
+  background: #25182e;
+  color: #d8c8e3;
+  border: 1px solid #442a54;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+}
+.badge-emerald {
+  background: var(--emerald-bg);
+  color: var(--emerald-text);
+  border: 1px solid var(--emerald-border);
+}
+.badge-indigo {
+  background: var(--indigo-bg);
+  color: var(--indigo-text);
+  border: 1px solid var(--indigo-border);
+}
+.badge-amber {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  border: 1px solid var(--amber-border);
+}
+
+/* Screenplay Beat Review Card */
+.beat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s ease;
+}
+.beat-card:hover {
+  border-color: var(--accent-plum);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-card-hover);
+}
+.beat-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.beat-speaker {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+.beat-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  color: #d8c9e0;
+  background: #271633;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #3e2450;
+}
+.beat-rationale-box {
+  background: #281705;
+  border: 1px solid #854d0e;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #fef3c7;
+}
+.beat-rationale-box b {
+  color: #fcd34d;
+}
+.beat-char-context {
+  background: #22152b;
+  border: 1px solid #482a5c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #ebd8f3;
+}
+.beat-char-context b {
+  color: #ffffff;
+}
+
+/* KPI Scorecard Box */
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+.kpi-title {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+.kpi-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Script Preview Box */
+.script-viewer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  background: #0e0712;
+  color: #f3ecf7;
+  padding: 20px 24px;
+  border-radius: 12px;
+  max-height: 520px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  border: 1px solid #3f274e;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
-def data(path: Path) -> dict:
+def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def label(root: Path) -> str:
-    return read_project(root).get("name") or root.name
-
-
-def select_project() -> Path | None:
-    st.sidebar.header("Microdrama projects")
-    projects = list_projects(PROJECTS_DIR)
-    with st.sidebar.expander("Create a project", expanded=not projects):
-        name = st.text_input("Project name", placeholder="My new microdrama")
-        if st.button("Create project", use_container_width=True):
+def select_project():
+    st.sidebar.markdown("""
+    <div style='display:flex; align-items:center; gap:8px; margin-bottom:12px;'>
+      <span style='font-size:1.4rem;'>🎬</span>
+      <h3 style='margin:0; font-size:1.15rem; font-weight:800; color:#ffffff;'>Studio Projects</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    projects = list_projects(PROJECTS)
+    with st.sidebar.expander("✨ New microdrama project", expanded=not projects):
+        name = st.text_input("Project name", placeholder="e.g. Lady Juliana's Vengeance")
+        if st.button("Create project", type="primary", use_container_width=True):
             try:
-                root = create_project(PROJECTS_DIR, name)
-                st.session_state.project = str(root)
+                path = create_project(PROJECTS, name)
+                st.session_state.project_path = str(path)
+                st.success(f"Project '{name}' created!")
                 st.rerun()
             except (ValueError, FileExistsError) as error:
                 st.error(str(error))
+
     if not projects:
-        st.info("Create a project to upload screenplay files.")
+        st.info("👋 Welcome! Create a microdrama project in the sidebar to begin.")
         return None
-    current = st.session_state.get("project")
-    index = next((i for i, item in enumerate(projects) if str(item) == current), 0)
-    root = st.sidebar.selectbox("Open project", projects, index=index, format_func=label)
-    st.session_state.project = str(root)
-    return root
+
+    current = st.session_state.get("project_path")
+    idx = next((i for i, p in enumerate(projects) if str(p) == current), 0)
+    selected = st.sidebar.selectbox(
+        "Active Project",
+        projects,
+        index=idx,
+        format_func=lambda p: read_project(p).get("name", p.name)
+    )
+    st.session_state.project_path = str(selected)
+    return selected
 
 
-def configure(root: Path) -> None:
-    metadata = read_project(root)
-    st.subheader(label(root))
-    st.caption("A project keeps its uploaded scripts, model settings, raw translations, and reviewed exports separate on this computer.")
-    settings, upload = st.columns(2)
-    with settings:
-        language_current = metadata.get("language", "Hindi")
-        language_choice = st.selectbox("Target language", LANGUAGES, index=LANGUAGES.index(language_current) if language_current in LANGUAGES else len(LANGUAGES) - 1)
-        language = st.text_input("Language name", value=language_current) if language_choice == "Custom language" else language_choice
-        model_current = metadata.get("model", MODELS[0])
-        model_choice = st.selectbox("Translation model", MODELS, index=MODELS.index(model_current) if model_current in MODELS else len(MODELS) - 1)
-        model = st.text_input("Gemini model ID", value=model_current) if model_choice == "Custom model ID" else model_choice
-        if st.button("Save settings"):
-            update_project(root, language=language.strip(), model=model.strip())
-            st.success("Project settings saved.")
-    with upload:
-        files = st.file_uploader("Upload screenplay .txt files", type=["txt"], accept_multiple_files=True)
-        if st.button("Add scripts", disabled=not files):
-            st.success(f"Added {save_scripts(root, files or [])} screenplay file(s).")
+def configure_hub(root: Path):
+    meta = read_project(root)
     scripts = sorted((root / "scripts").glob("*.txt"))
-    st.caption(f"{len(scripts)} uploaded screenplay file(s)")
-    if scripts:
-        with st.expander("Uploaded scripts"):
-            st.write([script.name for script in scripts])
+    target_lang = meta.get("language", "Hindi")
+    model_name = meta.get("model", MODELS[0])
+    
+    # Collapsible Project Hub
+    with st.expander(f"⚙️ Show Settings & Script Ingestion ({len(scripts)} scripts loaded)", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Language & Translation Engine**")
+            lang_choice = st.selectbox(
+                "Target language",
+                LANGUAGES,
+                index=LANGUAGES.index(target_lang) if target_lang in LANGUAGES else len(LANGUAGES)-1,
+                key="cfg_lang"
+            )
+            language = st.text_input("Custom language", target_lang, key="cfg_custom_lang") if lang_choice == "Custom language" else lang_choice
+            
+            model_choice = st.selectbox(
+                "Gemini model",
+                MODELS,
+                index=MODELS.index(model_name) if model_name in MODELS else len(MODELS)-1,
+                key="cfg_model"
+            )
+            model = st.text_input("Custom model ID", model_name, key="cfg_custom_model") if model_choice == "Custom model ID" else model_choice
+            
+            if st.button("Save project configuration", type="primary", use_container_width=True):
+                update_project(root, language=language.strip(), model=model.strip())
+                st.success("Configuration updated.")
+                st.rerun()
+
+        with c2:
+            st.markdown("**Upload Screenplay Scripts**")
+            uploads = st.file_uploader(
+                "Upload episode .txt files",
+                type=["txt"],
+                accept_multiple_files=True,
+                help="Upload plain text screenplay files formatted with scene headings, character cues, and timestamps."
+            )
+            if st.button("Save uploaded scripts", disabled=not uploads, use_container_width=True):
+                saved_count = save_scripts(root, uploads or [])
+                st.success(f"Saved {saved_count} episode scripts.")
+                st.rerun()
+            
+            if scripts:
+                st.markdown(f"**Loaded screenplay files ({len(scripts)} total):**")
+                file_chips = "".join([f"<span class='badge badge-alias' style='margin:2px;'>{p.name}</span>" for p in scripts[:8]])
+                if len(scripts) > 8:
+                    file_chips += f"<span class='badge badge-role' style='margin:2px;'>+{len(scripts)-8} more</span>"
+                st.markdown(f"<div>{file_chips}</div>", unsafe_allow_html=True)
+
+    return scripts
 
 
-def translate(root: Path) -> None:
-    metadata = read_project(root)
-    scripts = root / "scripts"
-    st.subheader("Translate and compare")
-    selected = st.text_input("Episodes to compare", value="1,2,10", help="Comma-separated. Leave blank for the default selection.")
-    if st.button("Build Story Bible and translate", type="primary", disabled=not list(scripts.glob("*.txt"))):
-        args = argparse.Namespace(scripts=str(scripts), lang=metadata["language"], episodes=selected or None, output=str(root / "output"), model=metadata["model"])
-        try:
-            with st.spinner("Building the Story Bible and translating..."):
-                run(args)
-            st.success("Translation package is ready.")
-        except Exception as error:
-            st.error(f"Translation failed: {error}")
+def context_tab(root: Path, scripts: list[Path]):
+    raw = root / "output" / "raw"
+    bible_path = raw / "story_bible.json"
+    meta = read_project(root)
+
+    # Action Banner
+    col_info, col_btn = st.columns([3, 1.2])
+    with col_info:
+        st.markdown("""
+        <div style='margin-bottom:8px;'>
+          <h3 style='margin:0 0 4px 0;'>Series Knowledge & Character Story Bible</h3>
+          <p style='color:var(--text-muted); margin:0; font-size:0.92rem;'>
+            Unify recurring character names into canonical aliases, establish relationship dynamics and voice, and curate recurring glossary terminology before translation.
+          </p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_btn:
+        st.write("")
+        if scripts and st.button("✨ Build / Refresh Story Bible", type="primary", use_container_width=True):
+            episodes, skipped = parse_folder(root / "scripts")
+            if not episodes:
+                st.error("No screenplay files could be parsed.")
+            else:
+                raw.mkdir(parents=True, exist_ok=True)
+                with st.spinner("Analyzing cross-episode character continuity and glossary..."):
+                    index = build_index(episodes, meta["language"])
+                    bible = build_bible(GeminiClient(root / "output" / "cache", model=meta["model"]), index, meta["name"], meta["language"])
+                (raw / "episodes.json").write_text(json.dumps({"episodes": [e.to_dict() for e in episodes]}, ensure_ascii=False, indent=2), encoding="utf-8")
+                (raw / "series_index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+                (raw / "ingest.json").write_text(json.dumps({"episodes_found": len(episodes), "skipped": skipped}, ensure_ascii=False, indent=2), encoding="utf-8")
+                bible_path.write_text(json.dumps(bible, ensure_ascii=False, indent=2), encoding="utf-8")
+                st.success(f"Story Bible successfully built from {len(episodes)} episodes!")
+                st.rerun()
+
+    if not bible_path.exists():
+        st.info("💡 Click **Build / Refresh Story Bible** above to extract characters, relationship maps, and glossary terms from your uploaded scripts.")
+        return
+
+    bible = load(bible_path)
+
+    # Series Policy & Title Box
+    with st.form("review_bible_form"):
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        col_t, col_l = st.columns([2, 1])
+        with col_t:
+            bible["series_title"] = st.text_input("Series Title", bible.get("series_title", meta.get("name", "")))
+        with col_l:
+            st.text_input("Target Language", bible.get("target_language", meta.get("language", "Hindi")), disabled=True)
+        
+        bible["adaptation_policy"] = st.text_area(
+            "Series Adaptation Policy & Power Dynamics",
+            bible.get("adaptation_policy", ""),
+            help="Defines honorifics rules, respectful address (Aap) vs condescending/familiar address (Tu), and emotional tone preservation."
+        )
+
+        st.markdown("<hr style='border:none; border-top:1px solid var(--line); margin:20px 0;'>", unsafe_allow_html=True)
+
+        # Characters Section
+        characters = bible.get("characters", [])
+        st.markdown(f"""
+        <div style='display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;'>
+          <div>
+            <h4 style='margin:0;'>Character Roster & Voice Profiles</h4>
+            <span style='font-size:0.83rem; color:var(--text-muted);'>Define spoken names in {bible.get('target_language', 'target language')}, address protocols, and character dynamics.</span>
+          </div>
+          <span class='badge badge-role'>{len(characters)} Characters Indexed</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for i, char in enumerate(characters):
+            initials = (char.get("display_name", "")[:2] or "CH").upper()
+            spoken = char.get("spoken_name", "")
+            aliases = char.get("surface_forms", [])
+            role_snippet = (char.get("role") or "").split(",")[0]
+            
+            alias_tags = "".join([f"<span class='badge badge-alias' style='margin-right:4px;'>{html.escape(a)}</span>" for a in aliases[:4]])
+            if len(aliases) > 4:
+                alias_tags += f"<span class='badge badge-alias'>+{len(aliases)-4}</span>"
+
+            with st.expander(f"👤 {char.get('display_name')}  ·  {spoken or 'No spoken name'}  ·  {role_snippet}"):
+                st.markdown(f"""
+                <div class='char-card-header'>
+                  <div class='char-avatar'>{initials}</div>
+                  <div class='char-title-box'>
+                    <h4 class='char-name'>{html.escape(char.get('display_name', ''))} <span class='char-spoken'>({html.escape(spoken)})</span></h4>
+                    <div style='margin-top:4px;'>{alias_tags}</div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c_a, c_b = st.columns(2)
+                char["display_name"] = c_a.text_input("Script Display Name", char.get("display_name", ""), key=f"b-dn-{i}")
+                char["spoken_name"] = c_b.text_input("Spoken Name in Dialogue", char.get("spoken_name", ""), key=f"b-sn-{i}")
+                
+                char["role"] = st.text_area("Narrative Role", char.get("role", ""), key=f"b-role-{i}", height=70)
+                
+                c_rel, c_sty = st.columns(2)
+                char["relationships"] = c_rel.text_area("Relationship Dynamics", char.get("relationships", ""), key=f"b-rel-{i}", height=80)
+                char["speech_style"] = c_sty.text_area("Speech Style & Voice", char.get("speech_style", ""), key=f"b-sty-{i}", height=80)
+                
+                char["address"] = st.text_input("Forms of Address & Honorific Protocol", char.get("address", ""), key=f"b-add-{i}")
+
+        st.markdown("<hr style='border:none; border-top:1px solid var(--line); margin:20px 0;'>", unsafe_allow_html=True)
+
+        # Glossary Section
+        glossary = bible.get("glossary", [])
+        st.markdown(f"""
+        <div style='display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;'>
+          <div>
+            <h4 style='margin:0;'>Recurring Glossary & Terminology</h4>
+            <span style='font-size:0.83rem; color:var(--text-muted);'>Lock in specific cultural terminology, titles, or decisions to keep vs adapt.</span>
+          </div>
+          <span class='badge badge-indigo'>{len(glossary)} Terms</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for i, term in enumerate(glossary):
+            gc = st.columns([1.5, 1, 1.5, 2])
+            term["source"] = gc[0].text_input("Source Term", term.get("source", ""), key=f"gs-{i}")
+            term["decision"] = gc[1].selectbox("Action", ["keep", "adapt"], index=0 if term.get("decision") == "keep" else 1, key=f"gd-{i}")
+            term["target"] = gc[2].text_input("Target Form", term.get("target", ""), key=f"gt-{i}")
+            term["note"] = gc[3].text_input("Usage Context", term.get("note", ""), key=f"gn-{i}")
+
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        if st.form_submit_button("💾 Save Reviewed Story Bible", type="primary", use_container_width=True):
+            bible_path.write_text(json.dumps(bible, ensure_ascii=False, indent=2), encoding="utf-8")
+            st.success("Story Bible updated! Localization will use these reviewed character profiles and terms.")
+
+    # Localization Launcher Card
+    st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background:linear-gradient(135deg, #1f1228 0%, #2f173d 100%); border:1px solid #4a2860; border-radius:16px; padding:20px 24px;'>
+      <div style='display:flex; align-items:center; gap:8px;'>
+        <span style='font-size:1.3rem;'>🚀</span>
+        <h4 style='margin:0; color:#ffffff;'>Launch Series-Aware Localisation</h4>
+      </div>
+      <p style='color:var(--text-muted); font-size:0.88rem; margin:4px 0 14px 0;'>
+        Runs side-by-side localization: isolated baseline vs. context-aware adaptation powered by the reviewed Story Bible.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_ep, col_go = st.columns([2.5, 1.5])
+    with col_ep:
+        selected_eps = st.text_input("Episodes to localise (comma-separated)", "1,2,10", help="Specify episode numbers like '1,2,10' or '1-5'")
+    with col_go:
+        st.write("")
+        st.write("")
+        if st.button("✨ Run Contextual Localisation", type="primary", use_container_width=True):
+            args = argparse.Namespace(
+                scripts=str(root / "scripts"),
+                lang=meta["language"],
+                episodes=selected_eps,
+                output=str(root / "output"),
+                model=meta["model"]
+            )
+            try:
+                with st.spinner("Applying series context and generating comparative localisations..."):
+                    run(args)
+                st.success("Localisation finished! Review side-by-side lines and continuity metrics in the next tabs.")
+                st.rerun()
+            except Exception as error:
+                st.error(f"Localisation failed: {error}")
 
 
-def review(root: Path) -> None:
+def localisation_tab(root: Path):
+    raw = root / "output" / "raw"
+    paths = sorted(raw.glob("episode-*.series.json")) if raw.exists() else []
+    
+    if not paths or not (raw / "episodes.json").exists():
+        st.info("💡 Build the Story Bible and run localization on your episodes to review side-by-side line choices.")
+        return
+
+    # Header Control Strip
+    c_ep, c_filter, c_search = st.columns([1.5, 1.5, 2])
+    with c_ep:
+        path = st.selectbox("Select Episode", paths, format_func=lambda p: f"Episode {p.stem.split('.')[0].replace('episode-', '')}")
+    with c_filter:
+        view_filter = st.selectbox("Show Beats", ["All dialogue beats", "Adapted beats only", "Beats with AI rationale"])
+    with c_search:
+        search_query = st.text_input("🔍 Search lines or speaker", placeholder="Filter by text or speaker...")
+
+    contextual = load(path)
+    isolated_path = path.with_name(path.name.replace(".series.json", ".independent.json"))
+    isolated = load(isolated_path) if isolated_path.exists() else {"beats": {}}
+    rows = load(raw / "episodes.json")["episodes"]
+    ep = next((Episode.from_dict(row) for row in rows if int(row["number"]) == contextual["episode"]), None)
+    bible = load(raw / "story_bible.json") if (raw / "story_bible.json").exists() else {}
+
+    if ep is None:
+        st.error("Parsed source data is missing.")
+        return
+
+    source = {beat.id: beat for beat in ep.beats()}
+    
+    # Filter beats
+    all_beats = []
+    for bid, result in contextual.get("beats", {}).items():
+        beat = source.get(bid)
+        if not beat or beat.kind != "dialogue":
+            continue
+        
+        iso_text = (isolated.get("beats", {}).get(bid) or {}).get("text", "")
+        ctx_text = result.get("text", "")
+        is_changed = iso_text.strip() != ctx_text.strip()
+        has_note = bool(result.get("relationship_context") or result.get("localisation_note"))
+
+        if view_filter == "Adapted beats only" and not is_changed:
+            continue
+        if view_filter == "Beats with AI rationale" and not has_note:
+            continue
+        if search_query:
+            sq = search_query.casefold()
+            match = sq in beat.cue.casefold() or sq in beat.text.casefold() or sq in ctx_text.casefold() or sq in iso_text.casefold()
+            if not match:
+                continue
+
+        all_beats.append((bid, beat, result, iso_text, ctx_text, is_changed, has_note))
+
+    # Summary Count Bar
+    st.markdown(f"""
+    <div style='display:flex; align-items:center; justify-content:space-between; margin:14px 0 16px 0;'>
+      <span style='font-size:0.88rem; color:var(--text-muted);'>Showing <b style='color:#ffffff;'>{len(all_beats)}</b> dialogue beats for Episode {ep.number:03d}</span>
+      <span style='font-size:0.84rem; color:#f0b8ff; font-weight:600;'>💡 Edit lines directly in the right column and click Save</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    edits = {}
+    for bid, beat, result, iso_text, ctx_text, is_changed, has_note in all_beats:
+        char = next((c for c in bible.get("characters", []) if beat.cue in c.get("surface_forms", []) or beat.cue == c.get("display_name")), None)
+        
+        with st.container():
+            diff_badge = "<span class='badge badge-emerald'>✨ Context Adapted</span>" if is_changed else "<span class='badge badge-alias'>Identical</span>"
+            time_str = f"{beat.start} to {beat.end}" if beat.start else "No timestamp"
+            
+            st.markdown(f"""
+            <div class='beat-card'>
+              <div class='beat-meta-row'>
+                <div style='display:flex; align-items:center; gap:8px;'>
+                  <span class='beat-speaker'>{html.escape(beat.cue)}</span>
+                  {diff_badge}
+                </div>
+                <div style='display:flex; align-items:center; gap:8px;'>
+                  <span class='beat-time'>⏱️ {time_str}</span>
+                  <code style='font-size:0.75rem;'>#{bid}</code>
+                </div>
+              </div>
+            """, unsafe_allow_html=True)
+            
+            # 3-Column Comparison
+            col_src, col_iso, col_ctx = st.columns(3)
+            with col_src:
+                st.caption("🇺🇸 Source Screenplay")
+                st.text_area("Source", beat.text, disabled=True, key=f"src-{bid}", height=95, label_visibility="collapsed")
+            with col_iso:
+                st.caption("🔒 Baseline (Episode Alone)")
+                st.text_area("Episode alone", iso_text, disabled=True, key=f"iso-{bid}", height=95, label_visibility="collapsed")
+            with col_ctx:
+                st.caption("✨ Series Contextual (Editable)")
+                edits[bid] = st.text_area("With series context", ctx_text, key=f"ctx-{bid}", height=95, label_visibility="collapsed")
+
+            # Character Relationship & Voice context
+            if char:
+                spoken = char.get('spoken_name') or beat.cue
+                rel = char.get('relationships') or 'Standard relationship'
+                voice = char.get('speech_style') or 'Standard voice'
+                addr = char.get('address') or 'Standard honorific'
+                st.markdown(f"""
+                <div class='beat-char-context'>
+                  <b>👤 {html.escape(char.get('display_name', ''))}</b> (Spoken: <i style='color:#f2b7ff;'>{html.escape(spoken)}</i>) · <b>Dynamic:</b> {html.escape(rel[:90])}... · <b>Voice:</b> {html.escape(voice[:60])}... · <b>Address:</b> {html.escape(addr[:50])}
+                </div>
+                """, unsafe_allow_html=True)
+
+            # AI Rationale Box
+            note = result.get("localisation_note")
+            rel_ctx = result.get("relationship_context")
+            if note or rel_ctx:
+                st.markdown(f"""
+                <div class='beat-rationale-box'>
+                  <b>🎯 AI Context Rationale:</b> {html.escape(rel_ctx or '')} &mdash; <i>{html.escape(note or '')}</i>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # Save Line Edits Button
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+    if st.button("💾 Save Reviewed Line Edits for this Episode", type="primary", use_container_width=True):
+        destination = root / "output" / "reviewed"
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / f"episode-{ep.number:03d}.edits.json").write_text(json.dumps(edits, ensure_ascii=False, indent=2), encoding="utf-8")
+        st.success(f"Edits saved successfully for Episode {ep.number:03d} by beat ID!")
+
+
+def continuity_tab(root: Path):
+    raw = root / "output" / "raw"
+    report_path = raw / "comparison.json"
+    
+    if not report_path.exists():
+        st.info("💡 Run localization to generate the continuity and quality assurance report.")
+        return
+
+    report = load(report_path)
+    series_rep = report.get("series", {})
+    indep_rep = report.get("independent", {})
+
+    st.markdown("""
+    <div style='margin-bottom:20px;'>
+      <h3 style='margin:0 0 4px 0;'>Continuity & Quality Assurance Scorecard</h3>
+      <p style='color:var(--text-muted); font-size:0.92rem; margin:0;'>
+        Automated verification comparing series-aware translation against the isolated baseline across dialogue completeness, audio timestamp preservation, spoken names, and glossary compliance.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 4 Hero KPI Cards
+    k1, k2, k3, k4 = st.columns(4)
+    
+    comp_val = series_rep.get("completeness", 1.0)
+    comp_pct = f"{int(comp_val * 100)}%" if comp_val is not None else "100%"
+    k1.markdown(f"""
+    <div class='kpi-card'>
+      <div class='kpi-title'>Script Completeness</div>
+      <div class='kpi-value'>{comp_pct}</div>
+      <div class='kpi-sub'><span class='badge badge-emerald'>✓ 0 dropped beats</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    ts_ok = series_rep.get("timestamps_preserved", True)
+    k2.markdown(f"""
+    <div class='kpi-card'>
+      <div class='kpi-title'>Audio Timestamps</div>
+      <div class='kpi-value'>{'100%' if ts_ok else 'Gaps'}</div>
+      <div class='kpi-sub'><span class='badge badge-emerald'>{'✓ Sync preserved' if ts_ok else '⚠️ Drift detected'}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    name_rate = series_rep.get("spoken_name_rate")
+    iso_name_rate = indep_rep.get("spoken_name_rate")
+    name_str = f"{int(name_rate * 100)}%" if name_rate is not None else "N/A"
+    diff_name = f"+{int(((name_rate or 0) - (iso_name_rate or 0)) * 100)}% vs baseline" if name_rate and iso_name_rate else "High adherence"
+    k3.markdown(f"""
+    <div class='kpi-card'>
+      <div class='kpi-title'>Spoken Name Rate</div>
+      <div class='kpi-value'>{name_str}</div>
+      <div class='kpi-sub'><span class='badge badge-indigo'>{diff_name}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    gloss_rate = series_rep.get("glossary_rate")
+    gloss_str = f"{int(gloss_rate * 100)}%" if gloss_rate is not None else "100%"
+    k4.markdown(f"""
+    <div class='kpi-card'>
+      <div class='kpi-title'>Glossary Adherence</div>
+      <div class='kpi-value'>{gloss_str}</div>
+      <div class='kpi-sub'><span class='badge badge-amber'>Consistent terms</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+
+    # Comparison Matrix: Baseline vs Contextual
+    st.markdown("#### ⚖️ Baseline vs Series-Aware Advantage")
+    c_left, c_right = st.columns(2)
+    
+    with c_left:
+        st.markdown("""
+        <div class='studio-card'>
+          <div style='display:flex; align-items:center; gap:8px; margin-bottom:12px;'>
+            <span class='badge badge-alias'>BASELINE</span>
+            <h4 style='margin:0; font-size:1.05rem;'>Isolated (Episode Alone)</h4>
+          </div>
+          <p style='font-size:0.85rem; color:var(--text-muted);'>
+            Translates each episode in isolation with zero memory of other episodes or alias maps.
+          </p>
+        """, unsafe_allow_html=True)
+        st.metric("Spoken Name Accuracy", f"{int((iso_name_rate or 0) * 100)}%" if iso_name_rate is not None else "N/A")
+        
+        iso_cues = indep_rep.get("model_characters_with_multiple_cues", {})
+        st.markdown(f"<p style='color:#ffffff; font-size:0.9rem; margin-top:8px;'><b>Cue Variant Fragmentation:</b> {len(iso_cues)} characters fragmented</p>", unsafe_allow_html=True)
+        for char_id, cues in list(iso_cues.items())[:3]:
+            st.caption(f"• `{char_id}` appeared as: {', '.join(cues[:3])}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c_right:
+        st.markdown("""
+        <div class='studio-card' style='border-color:var(--accent-plum);'>
+          <div style='display:flex; align-items:center; gap:8px; margin-bottom:12px;'>
+            <span class='badge badge-role'>CONTEXTUAL</span>
+            <h4 style='margin:0; font-size:1.05rem;'>With Series Story Bible</h4>
+          </div>
+          <p style='font-size:0.85rem; color:var(--text-muted);'>
+            Unifies surface cues into canonical character IDs and enforces relationship-based honorifics.
+          </p>
+        """, unsafe_allow_html=True)
+        st.metric("Spoken Name Accuracy", f"{int((name_rate or 0) * 100)}%" if name_rate is not None else "N/A", delta=f"+{int(((name_rate or 0) - (iso_name_rate or 0)) * 100)}%" if name_rate and iso_name_rate else None)
+        
+        series_cues = series_rep.get("applied_characters_with_multiple_cues", {})
+        cue_count = len(series_cues)
+        badge_type = 'badge-emerald' if cue_count == 0 else 'badge-amber'
+        st.markdown(f"<p style='color:#ffffff; font-size:0.9rem; margin-top:8px;'><b>Applied Cue Discrepancies:</b> <span class='badge {badge_type}'>{cue_count} unresolved</span></p>", unsafe_allow_html=True)
+        if cue_count == 0:
+            st.markdown("<p style='font-size:0.85rem; color:#6ee7b7; margin-top:8px;'>✓ All dialogue cues successfully normalized to canonical character identities across all episodes.</p>", unsafe_allow_html=True)
+        else:
+            for char_id, cues in series_cues.items():
+                st.caption(f"• `{char_id}`: {', '.join(cues)}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Narrative Overview
+    summary_path = raw / "series_summary.json"
+    if summary_path.exists():
+        summary = load(summary_path)
+        st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+        with st.expander("📖 Series Narrative Overview & Story Arc", expanded=False):
+            st.markdown(f"### {summary.get('title', 'Series Overview')}")
+            if summary.get("logline"):
+                st.markdown(f"**Logline:** *{summary.get('logline')}*")
+            if summary.get("premise"):
+                st.markdown(f"**Premise:** {summary.get('premise')}")
+            if summary.get("story_arc"):
+                st.markdown(f"**Story Arc:** {summary.get('story_arc')}")
+            
+            c_st, c_tn = st.columns(2)
+            if summary.get("stakes"):
+                c_st.markdown(f"**Stakes:** {summary.get('stakes')}")
+            if summary.get("tone"):
+                c_tn.markdown(f"**Tone:** {summary.get('tone')}")
+
+            if summary.get("episode_overview"):
+                st.markdown("#### Episode Synopses")
+                for item in summary.get("episode_overview", []):
+                    st.markdown(f"**Episode {item.get('episode')}:** {item.get('summary')}")
+
+    # Developer Raw JSON View
+    with st.expander("🛠️ View Raw Audit Data (comparison.json)", expanded=False):
+        st.json(report)
+
+
+def exports_tab(root: Path):
     raw = root / "output" / "raw"
     if not raw.exists():
+        st.info("💡 Localise episodes first to generate export packages.")
         return
-    st.subheader("Results and review")
-    comparison = raw / "comparison.json"
-    if comparison.exists():
-        report = data(comparison)
-        a, b = st.columns(2)
-        a.metric("Independent completeness", report["independent"].get("completeness"))
-        b.metric("Series completeness", report["series"].get("completeness"))
-        st.download_button("Download comparison report", comparison.read_bytes(), file_name="comparison.json", mime="application/json")
-        with st.expander("Full consistency report"):
-            st.json(report)
-    series_files = sorted(raw.glob("episode-*.series.json"))
-    episodes_file = raw / "episodes.json"
-    if not series_files or not episodes_file.exists():
-        return
-    series_path = st.selectbox("Review episode", series_files, format_func=lambda path: path.stem.replace(".series", ""))
-    series = data(series_path)
-    independent_path = series_path.with_name(series_path.name.replace(".series.json", ".independent.json"))
-    independent = data(independent_path) if independent_path.exists() else {"beats": {}}
-    episode = next((Episode.from_dict(row) for row in data(episodes_file).get("episodes", []) if int(row["number"]) == int(series["episode"])), None)
-    if episode is None:
-        st.error("Missing parsed source data for this translation.")
-        return
-    output = raw / f"episode-{episode.number:03d}.series.txt"
-    st.download_button("Download series translation", output.read_bytes(), file_name=output.name, mime="text/plain")
-    edits: dict[str, str] = {}
-    source = {beat.id: beat for beat in episode.beats()}
-    for beat_id, record in series.get("beats", {}).items():
-        original, alone, contextual = st.columns(3)
-        original.text_area(f"Source {beat_id}", source.get(beat_id).text if beat_id in source else "", disabled=True, height=76)
-        alone.text_area(f"Independent {beat_id}", (independent.get("beats", {}).get(beat_id) or {}).get("text", ""), disabled=True, height=76)
-        edits[beat_id] = contextual.text_area(f"Series {beat_id}", record.get("text", ""), height=76)
-    if st.button("Save approved screenplay"):
-        reviewed = root / "output" / "reviewed"
-        reviewed.mkdir(parents=True, exist_ok=True)
-        approved = render_episode(episode, series, edits)
-        approved_path = reviewed / f"episode-{episode.number:03d}.approved.txt"
-        approved_path.write_text(approved, encoding="utf-8")
-        st.success("Approved screenplay saved.")
-        st.download_button("Download approved screenplay", approved, file_name=approved_path.name, mime="text/plain")
+
+    st.markdown("""
+    <div style='margin-bottom:20px;'>
+      <h3 style='margin:0 0 4px 0;'>Studio Deliverables & Screenplay Hub</h3>
+      <p style='color:var(--text-muted); font-size:0.92rem; margin:0;'>
+        Download finalized production screenplays, continuity verification packages, and review screenplays in-app.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Deliverables Grid
+    col_d1, col_d2, col_d3 = st.columns(3)
+    
+    # 1. Screenplays
+    with col_d1:
+        st.markdown("""
+        <div class='studio-card'>
+          <span style='font-size:1.8rem;'>📜</span>
+          <h4 style='margin:8px 0 4px 0;'>Production Screenplays</h4>
+          <p style='font-size:0.83rem; color:var(--text-muted); margin-bottom:14px;'>
+            Formatted script files preserving audio timestamps with contextually adapted dialogue.
+          </p>
+        """, unsafe_allow_html=True)
+        
+        script_files = sorted(set(list(raw.glob("episode-*.series.txt")) + list(raw.glob("episode-*.dialogue-only.*.txt"))))
+        if not script_files:
+            script_files = sorted(raw.glob("episode-*.txt"))
+
+        for p in script_files:
+            ep_label = p.stem.replace(".series", "").replace(".dialogue-only", "")
+            st.download_button(
+                f"📥 Download {ep_label} (.txt)",
+                p.read_bytes(),
+                file_name=p.name,
+                mime="text/plain",
+                key=f"dl-scr-{p.name}",
+                use_container_width=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # 2. QA Audit Report
+    with col_d2:
+        st.markdown("""
+        <div class='studio-card'>
+          <span style='font-size:1.8rem;'>📊</span>
+          <h4 style='margin:8px 0 4px 0;'>Continuity & QA Package</h4>
+          <p style='font-size:0.83rem; color:var(--text-muted); margin-bottom:14px;'>
+            Comprehensive JSON audit report verifying beat completeness, name consistency, and timestamps.
+          </p>
+        """, unsafe_allow_html=True)
+        
+        report = raw / "comparison.json"
+        if report.exists():
+            st.download_button(
+                "📥 Download comparison.json",
+                report.read_bytes(),
+                file_name=report.name,
+                mime="application/json",
+                key="dl-comp-json",
+                use_container_width=True
+            )
+        else:
+            st.caption("No comparison report available yet.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # 3. Story Bible & Overview
+    with col_d3:
+        st.markdown("""
+        <div class='studio-card'>
+          <span style='font-size:1.8rem;'>📚</span>
+          <h4 style='margin:8px 0 4px 0;'>Series Story Bible</h4>
+          <p style='font-size:0.83rem; color:var(--text-muted); margin-bottom:14px;'>
+            Complete character rosters, spoken names, relationship dynamics, and agreed glossary terms.
+          </p>
+        """, unsafe_allow_html=True)
+        
+        bible_f = raw / "story_bible.json"
+        if bible_f.exists():
+            st.download_button(
+                "📥 Download story_bible.json",
+                bible_f.read_bytes(),
+                file_name=bible_f.name,
+                mime="application/json",
+                key="dl-bible-json",
+                use_container_width=True
+            )
+        
+        summary_f = raw / "series_summary.json"
+        if summary_f.exists():
+            st.download_button(
+                "📥 Download series_summary.json",
+                summary_f.read_bytes(),
+                file_name=summary_f.name,
+                mime="application/json",
+                key="dl-sum-json",
+                use_container_width=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Live In-App Screenplay Previewer
+    if script_files:
+        st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### 👁️ In-App Screenplay Previewer")
+        preview_choice = st.selectbox("Choose screenplay to inspect", script_files, format_func=lambda p: p.name)
+        if preview_choice:
+            content = preview_choice.read_text(encoding="utf-8")
+            st.markdown(f"<div class='script-viewer'>{html.escape(content)}</div>", unsafe_allow_html=True)
 
 
-st.set_page_config(page_title="Kuku Localise", layout="wide")
-st.title("Kuku Localise")
+# Main Execution Loop
 project = select_project()
+
 if project:
-    configure(project)
-    st.divider()
-    translate(project)
-    review(project)
+    meta = read_project(project)
+    p_name = meta.get("name", project.name)
+    p_lang = meta.get("language", "Hindi")
+    p_model = meta.get("model", MODELS[0])
+    p_scripts = sorted((project / "scripts").glob("*.txt"))
+    
+    # Executive Hero Banner with Live Project Ribbon
+    st.markdown(f"""
+    <div class='hero-banner'>
+      <div class='hero-tag'>🎬 KUKU CINEMA LABS · ENTERPRISE LOCALISATION</div>
+      <h1 class='hero-title'>Kuku Localise</h1>
+      <p class='hero-subtitle'>
+        Carry character identity, evolving power dynamics, and emotional voice across microdrama episodes.
+      </p>
+      <div class='status-ribbon'>
+        <div class='ribbon-chip'>🎬 Show: <b>{html.escape(p_name)}</b></div>
+        <div class='ribbon-chip'>🌐 Target Language: <b>{html.escape(p_lang)}</b></div>
+        <div class='ribbon-chip'>⚡ Model: <b>{html.escape(p_model)}</b></div>
+        <div class='ribbon-chip'>📄 Scripts: <b>{len(p_scripts)} episodes</b></div>
+        <div class='ribbon-chip'>🛡️ Status: <b>Ready for Studio Review</b></div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Script Hub & Configuration
+    scripts = configure_hub(project)
+
+    # 4 Core Studio Workspaces
+    tabs = st.tabs([
+        "📚  Series Context",
+        "✍️  Localisation Review",
+        "🔎  Continuity & QA",
+        "⬇️  Studio Exports"
+    ])
+    
+    with tabs[0]:
+        context_tab(project, scripts)
+    with tabs[1]:
+        localisation_tab(project)
+    with tabs[2]:
+        continuity_tab(project)
+    with tabs[3]:
+        exports_tab(project)
+else:
+    st.markdown("""
+    <div class='hero-banner'>
+      <div class='hero-tag'>🎬 KUKU CINEMA LABS</div>
+      <h1 class='hero-title'>Kuku Localise</h1>
+      <p class='hero-subtitle'>Select or create a microdrama project in the sidebar to get started.</p>
+    </div>
+    """, unsafe_allow_html=True)

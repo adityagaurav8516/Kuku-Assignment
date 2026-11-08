@@ -13,7 +13,7 @@ python -m kuku_localise.cli run --scripts examples/sample-show --lang hi
 
 ## Project workspace
 
-For a browser workflow, launch `streamlit run app.py`. Create a project for each microdrama, upload its `.txt` episode files, choose a target language and Gemini model, then select **Build Story Bible and translate**. Each project's source files, cache, raw results, and reviewed exports live under `projects/` and are ignored by Git. The review area lets you download the consistency report and series screenplay, edit series lines, and save/download an approved screenplay.
+For a browser workflow, launch `streamlit run app.py`. Create a project for each microdrama and upload its `.txt` episode files. In **Series context**, build and edit the Story Bible before running localisation. The **Localisation review** compares each source line with an isolated translation and a contextual translation, shows character relationship and voice guidance, and displays AI-generated notes explaining the adaptation. **Continuity** separates rule-based checks from those editorial notes. **Exports** provides the series overview, comparison report, and screenplay preserving the uploaded format with translated dialogue. Choose the target language and Gemini model in project settings. Project inputs and outputs are kept under the gitignored `projects/` directory.
 
 For a private show, keep its input folder outside the repository and use the same command. The default check set is episodes 1, 2, and 10 when present, otherwise the last episode. Override it with `--episodes 1,2,10`; use `--output some-folder` to choose the artifact location.
 
