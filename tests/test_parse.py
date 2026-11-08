@@ -12,8 +12,40 @@ def test_parser_assigns_stable_beat_ids_and_keeps_timestamps():
     assert episode.number == 7
     assert [beat.id for beat in episode.beats()] == ["e07-s01-b001", "e07-s01-b002"]
     assert episode.beats()[0].parenthetical == "breathless"
+    assert episode.beats()[0].duration == 3.0
     assert episode.beats()[1].kind == "action"
     assert episode.beats()[1].end == "00:07"
+    assert episode.beats()[1].duration == 3.0
+
+
+def test_parser_strips_nested_parentheticals_and_extracts_modifiers_and_duration():
+    source = chr(10).join([
+        "SCENE 1",
+        "**LADY JULIANA (Off-screen) (Dismissive):**",
+        "Start: (00:03) | End: (00:07)",
+        "Tell him I am not home.",
+        "",
+        "**MIRA (O.S.) (CONT'D):**",
+        "Start: (00:08) | End: (00:10)",
+        "Yes, my lady.",
+        "",
+    ])
+    episode = parse_episode_text(source, "episode-01.txt")
+    assert episode is not None
+    beats = episode.beats()
+    assert len(beats) == 2
+
+    beat1 = beats[0]
+    assert beat1.cue == "LADY JULIANA"
+    assert beat1.parenthetical == "Dismissive"
+    assert beat1.modifiers == ["Off-screen"]
+    assert beat1.duration == 4.0
+
+    beat2 = beats[1]
+    assert beat2.cue == "MIRA"
+    assert beat2.parenthetical == ""
+    assert beat2.modifiers == ["O.S.", "CONT'D"]
+    assert beat2.duration == 2.0
 
 
 def test_sample_show_parses_and_default_selection_is_stable():

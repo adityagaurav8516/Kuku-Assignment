@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from kuku_localise.llm import GeminiClient
+from kuku_localise.llm import BaseLLMClient
 
 
 SUMMARY_SYSTEM = """You are a development editor summarising a microdrama series from a screenplay index.
@@ -11,7 +11,7 @@ key_characters is an array of {name, role}. episode_overview is an array of {epi
 Write clear English intended for a producer; keep each field concise."""
 
 
-def build_series_summary(client: GeminiClient, index: dict, bible: dict) -> dict:
+def build_series_summary(client: BaseLLMClient, index: dict, bible: dict) -> dict:
     payload = {"series_index": index, "story_bible": {"series_title": bible.get("series_title"), "characters": bible.get("characters"), "plot_spine": bible.get("plot_spine")}}
     result = client.complete_json(SUMMARY_SYSTEM, json.dumps(payload, ensure_ascii=False, indent=2))
     return {

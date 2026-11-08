@@ -6,6 +6,7 @@ from kuku_localise.bible import character_for_cue
 from kuku_localise.export import render_episode
 from kuku_localise.models import Episode
 from kuku_localise.parse import is_translatable
+from kuku_localise.validation import compute_edit_rate, compute_levenshtein
 
 
 def _rate(hits: int, total: int) -> float | None:
@@ -15,20 +16,23 @@ def _rate(hits: int, total: int) -> float | None:
 
 
 def _cue_variants(episode: Episode, translation: dict, bible: dict) -> dict[str, list[str]]:
+    """Evaluate raw model outputs (model_display_name) to honestly measure model consistency."""
     grouped: dict[str, set[str]] = {}
-    beats = translation.get("model_beats") or translation.get("beats") or {}
+    model_beats = translation.get("model_beats") or translation.get("beats") or {}
     for beat in episode.beats():
         if beat.kind != "dialogue":
             continue
-        record = beats.get(beat.id) or {}
-        rendered = (record.get("model_display_name") or record.get("display_name") or beat.cue).strip()
+        record = model_beats.get(beat.id) or {}
+        # Prioritize honest raw model output
+        raw_name = (record.get("model_display_name") or record.get("display_name") or beat.cue).strip()
         character = character_for_cue(bible, beat.cue)
         key = character["id"] if character else beat.cue
-        grouped.setdefault(key, set()).add(rendered)
+        grouped.setdefault(key, set()).add(raw_name)
     return {key: sorted(values) for key, values in sorted(grouped.items())}
 
 
 def _applied_variants(episode: Episode, translation: dict, bible: dict) -> dict[str, list[str]]:
+    """Evaluate post-processed applied cues for production delivery comparison."""
     grouped: dict[str, set[str]] = {}
     beats = translation.get("beats") or {}
     for beat in episode.beats():
@@ -42,14 +46,21 @@ def _applied_variants(episode: Episode, translation: dict, bible: dict) -> dict[
     return {key: sorted(values) for key, values in sorted(grouped.items())}
 
 
-def score_translation(episode: Episode, translation: dict, bible: dict) -> dict:
+def score_translation(
+    episode: Episode,
+    translation: dict,
+    bible: dict,
+    edits: dict | None = None,
+) -> dict:
     beats = translation.get("beats") or {}
+    model_beats = translation.get("model_beats") or beats
     expected = [beat for beat in episode.beats() if is_translatable(beat.kind) and beat.text.strip()]
     missing = [beat.id for beat in expected if not (beats.get(beat.id) or {}).get("text")]
-    rendered = render_episode(episode, translation)
+    rendered = render_episode(episode, translation, edits=edits)
     time_lines = re.findall(r"(?m)^Start:\s+\(", rendered)
     source_time_lines = sum(1 for beat in episode.beats() if beat.start or beat.end)
 
+    # Glossary accuracy
     glossary_hits = 0
     glossary_total = 0
     glossary_misses = []
@@ -78,6 +89,7 @@ def score_translation(episode: Episode, translation: dict, bible: dict) -> dict:
                     }
                 )
 
+    # Spoken name accuracy
     name_hits = 0
     name_total = 0
     name_misses = []
@@ -122,8 +134,59 @@ def score_translation(episode: Episode, translation: dict, bible: dict) -> dict:
                 }
             )
 
+    # Cue variants: separate RAW MODEL performance from post-processed APPLIED cues
     model_variants = _cue_variants(episode, translation, bible)
     applied_variants = _applied_variants(episode, translation, bible)
+
+    # Honest Raw Model Cue Consistency:
+    # Measure how often the model itself chose the bible's canonical display_name
+    dialogue_beats = [b for b in episode.beats() if b.kind == "dialogue"]
+    model_canon_hits = 0
+    for b in dialogue_beats:
+        char = character_for_cue(bible, b.cue)
+        canon_name = (char.get("display_name") if char else b.cue) or b.cue
+        m_rec = model_beats.get(b.id) or {}
+        raw_choice = (m_rec.get("model_display_name") or m_rec.get("display_name") or "").strip()
+        if raw_choice.casefold() == canon_name.casefold():
+            model_canon_hits += 1
+    raw_cue_consistency_rate = _rate(model_canon_hits, len(dialogue_beats))
+
+    # Real Evidence Metric: Reviewer Edit Rate
+    # Formula: (characters changed / characters delivered)
+    reviewer_edit_data: dict | None = None
+    if edits:
+        total_delivered_chars = 0
+        total_changed_chars = 0
+        per_beat_edits = {}
+        for b in dialogue_beats:
+            if b.id in edits:
+                delivered_txt = (beats.get(b.id) or {}).get("text") or ""
+                reviewed_txt = edits[b.id]
+                dist = compute_levenshtein(delivered_txt, reviewed_txt)
+                beat_rate = compute_edit_rate(delivered_txt, reviewed_txt)
+                total_delivered_chars += len(delivered_txt)
+                total_changed_chars += dist
+                per_beat_edits[b.id] = {
+                    "delivered": delivered_txt,
+                    "reviewed": reviewed_txt,
+                    "characters_changed": dist,
+                    "characters_delivered": len(delivered_txt),
+                    "edit_rate": beat_rate,
+                }
+        overall_edit_rate = round(total_changed_chars / max(1, total_delivered_chars), 4) if total_delivered_chars > 0 else 0.0
+        reviewer_edit_data = {
+            "total_characters_delivered": total_delivered_chars,
+            "total_characters_changed": total_changed_chars,
+            "overall_edit_rate": overall_edit_rate,
+            "beats_edited_count": len(per_beat_edits),
+            "per_beat_edits": per_beat_edits,
+        }
+
+    # Code-based validation & Honest Failures count
+    honest_failures = [
+        bid for bid, r in beats.items() if r.get("status") == "honest_failure" or r.get("validation_failed")
+    ]
+
     return {
         "episode": episode.number,
         "mode": translation.get("mode"),
@@ -141,6 +204,7 @@ def score_translation(episode: Episode, translation: dict, bible: dict) -> dict:
         "spoken_name_opportunities": name_total,
         "spoken_name_rate": _rate(name_hits, name_total),
         "spoken_name_misses": name_misses,
+        "raw_cue_consistency_rate": raw_cue_consistency_rate,
         "model_cue_variants": model_variants,
         "applied_cue_variants": applied_variants,
         "model_characters_with_multiple_cues": {
@@ -149,6 +213,9 @@ def score_translation(episode: Episode, translation: dict, bible: dict) -> dict:
         "applied_characters_with_multiple_cues": {
             key: values for key, values in applied_variants.items() if len(values) > 1
         },
+        "honest_failures": honest_failures,
+        "honest_failure_count": len(honest_failures),
+        "reviewer_edit_metrics": reviewer_edit_data,
     }
 
 
@@ -162,6 +229,8 @@ def combine_scores(scores: list[dict]) -> dict:
     glossary_total = total("glossary_opportunities")
     name_hits = total("spoken_name_hits")
     name_total = total("spoken_name_opportunities")
+    honest_fails = total("honest_failure_count")
+
     multi_model: dict[str, list[str]] = {}
     multi_applied: dict[str, list[str]] = {}
     for item in scores:
@@ -175,6 +244,23 @@ def combine_scores(scores: list[dict]) -> dict:
             for value in values:
                 if value not in multi_applied[key]:
                     multi_applied[key].append(value)
+
+    # Aggregate reviewer edit rates if available
+    edit_metrics_list = [s.get("reviewer_edit_metrics") for s in scores if s.get("reviewer_edit_metrics")]
+    combined_edit_metrics = None
+    if edit_metrics_list:
+        sum_delivered = sum(m["total_characters_delivered"] for m in edit_metrics_list)
+        sum_changed = sum(m["total_characters_changed"] for m in edit_metrics_list)
+        combined_edit_metrics = {
+            "total_characters_delivered": sum_delivered,
+            "total_characters_changed": sum_changed,
+            "overall_edit_rate": round(sum_changed / max(1, sum_delivered), 4) if sum_delivered > 0 else 0.0,
+            "episodes_with_edits": len(edit_metrics_list),
+        }
+
+    raw_rates = [s["raw_cue_consistency_rate"] for s in scores if s.get("raw_cue_consistency_rate") is not None]
+    avg_raw_cue_rate = round(sum(raw_rates) / len(raw_rates), 3) if raw_rates else None
+
     return {
         "completeness": _rate(expected - missing, expected),
         "missing_beat_count": missing,
@@ -186,6 +272,9 @@ def combine_scores(scores: list[dict]) -> dict:
         "spoken_name_rate": _rate(name_hits, name_total),
         "spoken_name_hits": name_hits,
         "spoken_name_opportunities": name_total,
+        "raw_cue_consistency_rate": avg_raw_cue_rate,
         "model_characters_with_multiple_cues": multi_model,
         "applied_characters_with_multiple_cues": multi_applied,
+        "honest_failure_count": honest_fails,
+        "reviewer_edit_metrics": combined_edit_metrics,
     }

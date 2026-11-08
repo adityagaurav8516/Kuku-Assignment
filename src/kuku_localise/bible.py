@@ -1,31 +1,117 @@
 from __future__ import annotations
 
 import json
+import re
 
 from kuku_localise.index import significant_tokens
-from kuku_localise.llm import GeminiClient
+from kuku_localise.llm import BaseLLMClient
+
+GENERIC_DESCRIPTORS = {
+    "voice",
+    "voices",
+    "stranger",
+    "man",
+    "woman",
+    "guy",
+    "girl",
+    "boy",
+    "guard",
+    "nurse",
+    "doctor",
+    "officer",
+    "cop",
+    "waiter",
+    "waitress",
+    "driver",
+    "courier",
+    "messenger",
+    "announcer",
+    "phone",
+    "caller",
+    "maid",
+    "servant",
+    "assistant",
+    "crowd",
+    "chorus",
+    "shadow",
+    "figure",
+}
 
 BIBLE_SYSTEM = """You build a Story Bible used to localise one microdrama series.
 The index was extracted by code from the screenplays. Do not invent plot events that the index does not support.
 Merge cue strings that name the same person. Keep different people separate.
-possible_alias_groups only means those cues share a name token. Merge a group when the samples and loglines show they are one person. A descriptive cue such as THE STRANGER can still be a named character if the loglines say so.
+possible_alias_groups only means those cues share a name token. Merge a group when the samples and loglines show they are one person.
+Do NOT blindly merge generic cues like "OFF-SCREEN VOICE", "STRANGER", or "CALLER" unless the dialogue clearly attributes them to that person. If ambiguous, keep them separate or note the merge uncertainty.
+
 Return one JSON object with these keys:
 series_title, target_language, adaptation_policy, characters, glossary, plot_spine.
-Each character has: id, display_name, spoken_name, surface_forms, role, relationships, speech_style, address.
-display_name is the cue label to print in the localised script.
-spoken_name is the name other characters should say in the target language.
-When a proper name should keep its original spelling, use that same spelling for display_name and spoken_name.
-surface_forms must list every source cue you merged, copied exactly.
-glossary items have: source, decision, target, note.
-decision is "keep" or "adapt". Include only terms that recur or carry cultural weight.
-plot_spine items have: episode, summary. Write one item for every episode number in the index.
-Write adaptation_policy, role, relationships, speech_style, address, summary, and note in English so a reviewer can edit them.
-spoken_name, display_name, and glossary target may use the target language.
-adaptation_policy must say how forms of address should change with the relationship, and what the translation must not change: plot facts, who speaks, and the force of the last line.
+
+Each character has:
+- id: kebab-case identifier (e.g. "lady-juliana", "mira")
+- display_name: canonical cue label to print in the localised script
+- spoken_name: the name other characters say aloud in the target language dialogue
+- surface_forms: list of all source cue variations merged into this character
+- gender: "male", "female", "non-binary", or "unknown" (CRITICAL for target languages like Hindi with gendered verb agreement like करता/करती, गया/गई)
+- address_register: primary register used by/toward this character: "aap" (formal/respectful), "tum" (familiar/peer), or "tu" (intimate/contemptuous)
+- role: narrative role (e.g. "Protagonist, disgraced heiress")
+- relationships: dynamic relationships with other characters (e.g. "Employer to Mira; bitter rival to Lord Gerald; estranged daughter of Duke")
+- speech_style: tone and diction (e.g. "Sharp, aristocratic, controlled, never raises voice")
+- address: specific honorifics and forms of address used for and by this character
+- ambiguous_merges: list of merged surface forms that are generic descriptors or inferences, with rationale
+
+glossary items have: source, decision ("keep" or "adapt"), target, note. Include recurring terms and cultural concepts.
+plot_spine items have: episode (int), summary. One item for each episode in the index.
+Write adaptation_policy, role, relationships, speech_style, address, and notes in English for reviewer inspection.
 """
 
 
-def build_bible(client: GeminiClient, index: dict, series_name: str, target_language: str) -> dict:
+def detect_flagged_merges(index: dict, characters: list[dict]) -> list[dict]:
+    """Detect low-confidence merges or generic descriptor attributions for human review."""
+    flagged: list[dict] = []
+    alias_groups = index.get("possible_alias_groups") or []
+
+    for char in characters:
+        display = char.get("display_name", "")
+        display_tokens = significant_tokens(display)
+        char_flagged: list[dict] = []
+
+        for form in char.get("surface_forms", []):
+            if form == display:
+                continue
+            form_tokens = significant_tokens(form)
+            overlap = display_tokens & form_tokens
+
+            # Check if surface form is a generic descriptor
+            form_words = {w.lower() for w in re.findall(r"[A-Za-z]+", form)}
+            is_generic = bool(form_words & GENERIC_DESCRIPTORS)
+
+            # Check if this pair was never in index's possible_alias_groups
+            in_group = any(display in group and form in group for group in alias_groups)
+
+            reasons = []
+            if is_generic and not overlap:
+                reasons.append(f"Generic descriptor cue '{form}' merged into '{display}' with no shared name tokens")
+            elif not overlap and not in_group:
+                reasons.append(f"Surface form '{form}' has zero token overlap with canonical name '{display}'")
+
+            if reasons:
+                item = {
+                    "character_id": char.get("id"),
+                    "display_name": display,
+                    "surface_form": form,
+                    "reasons": reasons,
+                    "confidence": "low",
+                }
+                char_flagged.append(item)
+                flagged.append(item)
+
+        char["low_confidence_merges"] = char_flagged
+        char["needs_review"] = bool(char_flagged)
+
+    return flagged
+
+
+def build_bible(client: BaseLLMClient, index: dict, series_name: str, target_language: str) -> dict:
     user = (
         f"Series folder name: {series_name}\n"
         f"Target language: {target_language}\n\n"
@@ -35,6 +121,7 @@ def build_bible(client: GeminiClient, index: dict, series_name: str, target_lang
     data = client.complete_json(BIBLE_SYSTEM, user)
     characters = []
     seen_ids: set[str] = set()
+
     for raw in data.get("characters") or []:
         if not isinstance(raw, dict):
             continue
@@ -45,18 +132,39 @@ def build_bible(client: GeminiClient, index: dict, series_name: str, target_lang
         if character_id in seen_ids:
             character_id = f"{character_id}-{len(seen_ids)}"
         seen_ids.add(character_id)
+
+        # Extract expanded variables: gender, address_register, relationships
+        gender = str(raw.get("gender") or "unknown").strip().lower()
+        if gender not in {"male", "female", "non-binary", "unknown"}:
+            gender = "unknown"
+
+        register = str(raw.get("address_register") or "aap").strip().lower()
+        if "tu" in register and "tum" not in register and "aap" not in register:
+            register = "tu"
+        elif "tum" in register:
+            register = "tum"
+        else:
+            register = "aap"
+
         characters.append(
             {
                 "id": character_id,
                 "display_name": str(raw.get("display_name") or (forms[0] if forms else character_id)).strip(),
                 "spoken_name": str(raw.get("spoken_name") or raw.get("display_name") or "").strip(),
                 "surface_forms": forms,
+                "gender": gender,
+                "address_register": register,
                 "role": str(raw.get("role") or "").strip(),
                 "relationships": str(raw.get("relationships") or "").strip(),
                 "speech_style": str(raw.get("speech_style") or "").strip(),
                 "address": str(raw.get("address") or "").strip(),
+                "ambiguous_merges": raw.get("ambiguous_merges") or [],
             }
         )
+
+    # Flag low confidence merges for human review in the Bible UI
+    flagged = detect_flagged_merges(index, characters)
+
     glossary = []
     for raw in data.get("glossary") or []:
         if not isinstance(raw, dict) or not str(raw.get("source") or "").strip():
@@ -72,15 +180,18 @@ def build_bible(client: GeminiClient, index: dict, series_name: str, target_lang
                 "note": str(raw.get("note") or "").strip(),
             }
         )
+
     spine = []
     for raw in data.get("plot_spine") or []:
         if isinstance(raw, dict) and raw.get("episode") is not None:
             spine.append({"episode": int(raw["episode"]), "summary": str(raw.get("summary") or "").strip()})
+
     return {
         "series_title": str(data.get("series_title") or series_name).strip(),
         "target_language": str(data.get("target_language") or target_language).strip(),
         "adaptation_policy": str(data.get("adaptation_policy") or "").strip(),
         "characters": characters,
+        "flagged_merges": flagged,
         "glossary": glossary,
         "plot_spine": spine,
     }

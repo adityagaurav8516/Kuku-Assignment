@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from kuku_localise.models import Beat, Episode, Scene
+from kuku_localise.models import Beat, Episode, Scene, parse_timestamp_seconds
 
 DIRECTION = {
     "CAMERA": "camera",
@@ -42,19 +42,64 @@ SCENE_END = re.compile(r"^Scene end:\s*(.*)$", re.IGNORECASE)
 SCRIPT_MARK = re.compile(r"^-{3,}.*-{3,}\s*$")
 FILENAME_EPISODE = re.compile(r"episode[-_\s]*(\d+)", re.IGNORECASE)
 
+KNOWN_MODIFIERS = {
+    "OFF-SCREEN",
+    "OFF SCREEN",
+    "OFFSCREEN",
+    "O.S.",
+    "O.S",
+    "OS",
+    "V.O.",
+    "V.O",
+    "VO",
+    "VOICEOVER",
+    "VOICE-OVER",
+    "VOICE OVER",
+    "OVER SCREEN",
+    "CONT'D",
+    "CONTD",
+    "CONTINUED",
+    "FILTERED",
+    "ON PHONE",
+    "INTO PHONE",
+    "SUBTITLE",
+    "PRE-LAP",
+}
+
 
 def is_translatable(kind: str) -> bool:
     return kind in TRANSLATABLE
 
 
-def _split_cue(label: str) -> tuple[str, str, str]:
-    match = re.match(r"^(.*?)\s*\(([^)]*)\)\s*$", label.strip())
-    if match:
-        name, note = match.group(1).strip(), match.group(2).strip()
-    else:
-        name, note = label.strip(), ""
+def _split_cue(label: str) -> tuple[str, str, str, list[str]]:
+    """Recursively strip trailing parentheticals, separating audio/camera modifiers from acting notes."""
+    raw = label.strip()
+    raw_parentheticals: list[str] = []
+
+    # Strip all trailing parentheticals recursively/globally
+    while True:
+        match = re.search(r"\s*\(([^)]*)\)\s*$", raw)
+        if match:
+            raw_parentheticals.insert(0, match.group(1).strip())
+            raw = raw[: match.start()].strip()
+        else:
+            break
+
+    name = raw.strip()
+    modifiers: list[str] = []
+    notes: list[str] = []
+
+    for paren in raw_parentheticals:
+        cleaned_tag = paren.strip()
+        norm_tag = re.sub(r"[^\w\s'-]", "", cleaned_tag).upper().strip()
+        if cleaned_tag.upper() in KNOWN_MODIFIERS or norm_tag in KNOWN_MODIFIERS:
+            modifiers.append(cleaned_tag)
+        else:
+            notes.append(cleaned_tag)
+
     kind = DIRECTION.get(name.upper(), "dialogue")
-    return kind, name, note
+    parenthetical = ", ".join(notes)
+    return kind, name, parenthetical, modifiers
 
 
 def _episode_number_from_name(name: str) -> int | None:
@@ -87,6 +132,14 @@ def parse_episode_text(text: str, source_name: str) -> Episode | None:
             return
         beat_index += 1
         body = "\n".join(line.strip() for line in beat["lines"] if line.strip()).strip()
+
+        # Explicitly calculate duration in seconds
+        start_sec = parse_timestamp_seconds(beat["start"])
+        end_sec = parse_timestamp_seconds(beat["end"])
+        duration = 0.0
+        if start_sec is not None and end_sec is not None:
+            duration = max(0.0, round(end_sec - start_sec, 2))
+
         scene.beats.append(
             Beat(
                 id="",
@@ -96,6 +149,8 @@ def parse_episode_text(text: str, source_name: str) -> Episode | None:
                 start=beat["start"],
                 end=beat["end"],
                 text=body,
+                duration=duration,
+                modifiers=beat.get("modifiers") or [],
             )
         )
         if not beat["start"] or not beat["end"]:
@@ -141,11 +196,12 @@ def parse_episode_text(text: str, source_name: str) -> Episode | None:
         head = BEAT_HEAD.match(line)
         if head:
             flush_beat()
-            kind, cue, note = _split_cue(head.group(1))
+            kind, cue, note, modifiers = _split_cue(head.group(1))
             beat = {
                 "kind": kind,
                 "cue": cue,
                 "parenthetical": note,
+                "modifiers": modifiers,
                 "start": "",
                 "end": "",
                 "lines": [],

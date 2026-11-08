@@ -1,6 +1,27 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
+
+
+def parse_timestamp_seconds(ts: str | None) -> float | None:
+    """Convert screenplay timestamp string (e.g. '(00:03)', '01:15', '00:01:23') to seconds."""
+    if not ts:
+        return None
+    cleaned = re.sub(r"[^\d:.]", "", str(ts)).strip()
+    if not cleaned:
+        return None
+    parts = cleaned.split(":")
+    try:
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        elif len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+        elif len(parts) == 1:
+            return float(parts[0])
+    except ValueError:
+        return None
+    return None
 
 
 @dataclass
@@ -12,6 +33,8 @@ class Beat:
     start: str
     end: str
     text: str
+    duration: float = 0.0
+    modifiers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -26,6 +49,8 @@ class Beat:
             start=data.get("start") or "",
             end=data.get("end") or "",
             text=data.get("text") or "",
+            duration=float(data.get("duration") or 0.0),
+            modifiers=list(data.get("modifiers") or []),
         )
 
 

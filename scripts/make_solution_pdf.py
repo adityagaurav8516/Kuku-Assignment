@@ -1,33 +1,61 @@
 from pathlib import Path
-
-from reportlab.lib.colors import HexColor
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-
+from fpdf import FPDF
 
 root = Path(__file__).parents[1]
 output = root / "docs" / "solution.pdf"
-styles = getSampleStyleSheet()
-styles.add(ParagraphStyle(name="KukuTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=22, leading=26, textColor=HexColor("#4B1D6B"), spaceAfter=10))
-styles.add(ParagraphStyle(name="KukuHeading", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=12, leading=15, textColor=HexColor("#4B1D6B"), spaceBefore=11, spaceAfter=4))
-styles.add(ParagraphStyle(name="KukuBody", parent=styles["BodyText"], fontName="Helvetica", fontSize=9.6, leading=13.2, spaceAfter=7))
-story = [
-    Paragraph("Kuku Localise", styles["KukuTitle"]),
-    Paragraph("Series-aware microdrama localisation", styles["KukuHeading"]),
-    Paragraph("A checkable prototype for translating a serial screenplay without losing character identity, relationships, or recurring terms between episodes.", styles["KukuBody"]),
-    Paragraph("Problem and prototype", styles["KukuHeading"]),
-    Paragraph("Localising one episode at a time drops context that serial drama depends on: a character can have several cue labels, relationships change forms of address, and recurring objects can acquire multiple translations. Kuku Localise takes a folder of screenplay text files, builds one compact series index and Story Bible, then compares episode-only translations with translations made using that Bible.", styles["KukuBody"]),
-    Paragraph("The narrow output is deliberately checkable: selected episodes become editable, timestamp-preserving screenplays plus a structural consistency report. It is not a full studio workflow and does not approve a translation automatically.", styles["KukuBody"]),
-    Paragraph("How it works", styles["KukuHeading"]),
-    Paragraph("The parser reads metadata, scenes, cue labels, acting notes, timestamps, and dialogue/action/sound/music beats. It assigns stable beat IDs such as e01-s01-b001; a malformed file appears in an ingest report and does not halt the show. Code then compacts loglines, continuity notes, cue counts, parentheticals, samples, and possible aliases into a series index.", styles["KukuBody"]),
-    Paragraph("Gemini turns that index into a Story Bible with character aliases and display names, relationship and address guidance, glossary decisions, a plot spine, and adaptation policy. Series mode receives the current episode's relevant Bible slice and prior logline; independent mode receives only that episode. The renderer, not the model, preserves structure and timestamps.", styles["KukuBody"]),
-    Paragraph("Cost, quality, and limits", styles["KukuHeading"]),
-    Paragraph("A fresh run makes one Bible request plus two translation requests per checked episode, with an occasional repair request for missing beat IDs. Cached responses make iterative review inexpensive. At one show weekly, cost stays bounded by the selected episodes; scale requires paid quota, batching, and monitoring rather than a different prompt.", styles["KukuBody"]),
-    Paragraph("Rules compare completeness, timestamps, glossary use, referenced names, and cue variants. In the private Hindi run on episodes 1, 2, and 10 (50 source episodes indexed), both modes preserved all expected beats and timestamps. The model still emitted two Juliana cue variants, but series rendering reduced the approved output to one canonical display name. Referenced-name score was 0.667: episode 2 used a Gerald spelling that differed from the Bible target. Naturalness remains a human decision; the score is a check, not approval.", styles["KukuBody"]),
-    Paragraph("Confidential input packs and raw translations are excluded from version control. Reviewers store edits separately by beat ID, preserving the unedited package for audit.", styles["KukuBody"]),
+
+pdf = FPDF(orientation="P", unit="mm", format="A4")
+pdf.set_auto_page_break(auto=True, margin=15)
+pdf.add_page()
+
+# Title
+pdf.set_font("Helvetica", "B", 18)
+pdf.set_text_color(75, 29, 107)
+pdf.cell(0, 10, "Kuku Localise: Series-Aware Microdrama Localisation", ln=True)
+
+# Subtitle
+pdf.set_font("Helvetica", "B", 12)
+pdf.set_text_color(120, 40, 150)
+pdf.cell(0, 7, "Action Plan Refactoring & Architecture Report", ln=True)
+pdf.ln(3)
+
+sections = [
+    (
+        "1. Honesty of Measurement",
+        "Evaluates model_display_name (the raw model output) to honestly measure cue consistency before code-enforced canonical normalisation. Dynamic KPI badges in the studio continuity scorecard are directly bound to missing_beat_count and timestamps_preserved data."
+    ),
+    (
+        "2. Pipeline Architecture & Principle Enforcement",
+        "Axiom: Give the LLM only judgment work; keep measurable constraints in plain code.\n"
+        "- Step 1: Enhanced parser extracts clean cue names, strips nested parentheticals and audio modifiers (O.S., V.O.), and calculates beat duration in seconds.\n"
+        "- Step 2: Expanded Story Bible extracts gender (crucial for Hindi verb agreement), formal/informal address registers (aap/tum/tu), and surfaces low-confidence alias merges for human review.\n"
+        "- Step 3: Context-rich translation prompt injects recent dialogue history, scene context, and time budgets.\n"
+        "- Step 4: Strict code validation evaluates characters-per-second (CPS <= 18.0), Unicode address register compliance, and vertical screen subtitle limits.\n"
+        "- Step 5: Automated repair loop retries failing beats with explicit error directives (capped at 2 retries), tagging persistent violations as Honest Failures for human intervention.\n"
+        "- Step 6: Secondary cultural adaptation pass identifies Western/US idioms and attaches localized equivalents."
+    ),
+    (
+        "3. Real Evidence Metrics (Studio ROI)",
+        "Replaces purely structural checks with the Reviewer Edit Rate: (characters changed / characters delivered). Computes Levenshtein edit distance per beat and reports Reviewer Effort Saved (%) comparing series contextual translations against isolated baselines."
+    ),
+    (
+        "4. Model Swappability",
+        "Decoupled from Gemini via BaseLLMClient abstract interface. Powered by get_client(provider, model) factory supporting GeminiClient, MockLLMClient, and configurable fallbacks (gemini-2.5-flash)."
+    ),
+    (
+        "5. Scale and Cost",
+        "Provides --no-baseline flag to cut production API calls and costs by 50%. Aggregates API calls, prompt/candidate tokens, and estimated USD costs in usage.json. The Story Bible is generated once per show, and responses are deterministically cached."
+    ),
 ]
-doc = SimpleDocTemplate(str(output), pagesize=A4, rightMargin=19*mm, leftMargin=19*mm, topMargin=17*mm, bottomMargin=17*mm)
-doc.build(story)
-print(output)
+
+for heading, body in sections:
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(75, 29, 107)
+    pdf.cell(0, 6, heading, ln=True)
+    pdf.set_font("Helvetica", "", 9.5)
+    pdf.set_text_color(30, 30, 30)
+    pdf.multi_cell(0, 5, body)
+    pdf.ln(3)
+
+pdf.output(str(output))
+print(f"Generated PDF at: {output}")
