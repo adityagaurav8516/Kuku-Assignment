@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kuku-localise"
+version = "0.1.0"
+description = "Series-level localisation for microdrama screenplays"
+requires-python = ">=3.11"
+dependencies = [
+  "google-genai",
+  "python-dotenv",
+  "streamlit",
+  "fpdf2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+kuku-localise = "kuku_localise.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

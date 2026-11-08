@@ -1,0 +1,28 @@
+EPISODE NUMBER: Episode 2
+EPISODE LOGLINE: Juliana confronts Gerald about the cancelled wedding.
+CONTINUITY NOTES: Gerald's title is not public; he resents being called the former groom.
+
+--- SCRIPT START ---
+
+SCENE 01
+Scene heading: INT. MANOR HALL - NIGHT
+Scene start: 00:00
+Scene end: 00:19
+
+**JULIANA (quietly):**
+Start: (00:00) | End: (00:05)
+Gerald, tell me who sent the letter.
+
+**THE FORMER GROOM:**
+Start: (00:06) | End: (00:11)
+Do not call me that. You chose this silence.
+
+**ACTION:**
+Start: (00:12) | End: (00:15)
+Juliana hides the ring in her sleeve.
+
+**GERALD:**
+Start: (00:16) | End: (00:19)
+Tomorrow the whole manor will know.
+
+--- SCRIPT END ---
